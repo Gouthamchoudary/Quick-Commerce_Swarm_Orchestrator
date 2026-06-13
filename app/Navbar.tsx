@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Warehouse, Database, Cpu, GitBranch, ArrowUpRight } from "lucide-react";
+import { Warehouse, Database, Cpu, GitBranch, Github } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export default function Navbar() {
@@ -75,13 +75,14 @@ export default function Navbar() {
             <span>{apiOnline ? "FastAPI Active" : "Local Sandbox"}</span>
           </div>
           <a
-            href="https://github.com"
+            href="https://github.com/Gouthamchoudary/Quick-Commerce_Swarm_Orchestrator"
             target="_blank"
             rel="noopener noreferrer"
             className="github-btn"
+            aria-label="View source on GitHub"
           >
-            <span>Resume Project</span>
-            <ArrowUpRight size={14} />
+            <Github size={16} />
+            <span>GitHub</span>
           </a>
         </div>
       </div>

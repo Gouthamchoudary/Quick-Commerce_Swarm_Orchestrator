@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, Route, Eye, TrendingUp, Cpu, Award, BookOpen, Sparkles, Terminal } from "lucide-react";
+import { MessageSquare, Route, Eye, TrendingUp, Cpu, BookOpen, Sparkles, Terminal } from "lucide-react";
 
 type SubsystemId = "nlp" | "routing" | "cv" | "recsys";
 
@@ -23,7 +23,7 @@ const subsystems: ModelSubsystem[] = [
   {
     id: "nlp",
     name: "NLP Order Parser",
-    icon: <MessageSquare />,
+    icon: <MessageSquare size={18} />,
     tagline: "Translating messy human speech into structured database inputs.",
     description: "Dark stores receive orders via text messages, transcripts, and chat apps. This subsystem parses those unstructured instructions into structured line item arrays specifying SKU identifiers and quantities, mapping them directly to database schemas.",
     modelType: "Llama-3 8B fine-tuned via PEFT/LoRA (Seq2Seq translation)",
@@ -40,7 +40,7 @@ const subsystems: ModelSubsystem[] = [
   {
     id: "routing",
     name: "Swarm Routing Engine",
-    icon: <Route />,
+    icon: <Route size={18} />,
     tagline: "Synchronized multi-agent pathing in high-density grids.",
     description: "Once orders are validated, this engine solves the Multi-Agent Traveling Salesperson Problem (TSP) with dynamic congestion avoidance. It schedules multiple picker carts simultaneously, allocating stops logically based on position and fragility.",
     modelType: "Ray RLlib (Proximal Policy Optimization) + Google OR-Tools",
@@ -57,7 +57,7 @@ const subsystems: ModelSubsystem[] = [
   {
     id: "cv",
     name: "Computer Vision Eye",
-    icon: <Eye />,
+    icon: <Eye size={18} />,
     tagline: "Real-time shelf anomaly and misplaced item detection.",
     description: "Dark stores move fast, and products often end up on the wrong shelves. This system processes mock video streams from warehouse cameras to identify inventory misalignments, triggering automated alert queries.",
     modelType: "YOLOv8 Object Detection / Faster R-CNN Variant",
@@ -74,7 +74,7 @@ const subsystems: ModelSubsystem[] = [
   {
     id: "recsys",
     name: "Predictive Stocker",
-    icon: <TrendingUp />,
+    icon: <TrendingUp size={18} />,
     tagline: "Overnight shelf restructures based on item co-occurrence.",
     description: "Using shopping transaction histories, this recommendation model identifies item association rules and temporal order patterns. It suggests physical stock relocations (co-location restructures) to minimize travel base lines.",
     modelType: "XGBoost Classifier + Collaborative Filtering (Apriori Algorithm)",
@@ -90,7 +90,6 @@ const subsystems: ModelSubsystem[] = [
   },
 ];
 
-// Helper variables for client-side NLP playground
 const rawSkus: Record<string, { name: string; category: string; fragility: number }> = {
   "SKU-001": { name: "Bananas", category: "produce", fragility: 7 },
   "SKU-006": { name: "Whole Milk", category: "dairy", fragility: 4 },
@@ -134,7 +133,8 @@ export default function ModelsPage() {
     "Get me two bananas, whole milk, a dozen eggs, and olive oil please"
   );
 
-  // Client-side simulation of the NLP parsing logic
+  const activeSubsystem = subsystems.find((sub) => sub.id === activeTab)!;
+
   const parsedItems = useMemo(() => {
     const text = playgroundInput.toLowerCase();
     const results: Array<{ sku_id: string; name: string; quantity: number; fragility: number; confidence: number }> = [];
@@ -153,7 +153,6 @@ export default function ModelsPage() {
         const start = match.index;
         const end = start + match[0].length;
 
-        // check overlap
         const hasOverlap = matchedIndices.some(
           ([mStart, mEnd]) => Math.max(start, mStart) < Math.min(end, mEnd)
         );
@@ -178,7 +177,7 @@ export default function ModelsPage() {
           name: details.name,
           quantity,
           fragility: details.fragility,
-          confidence: text.includes(word.split(" ")[0]) ? 0.94 : 0.88,
+          confidence: text.includes(details.name.toLowerCase().split(" ")[0]) ? 0.94 : 0.88,
         });
       }
     });
@@ -186,68 +185,78 @@ export default function ModelsPage() {
     return results;
   }, [playgroundInput]);
 
-  const activeSubsystem = useMemo(() => {
-    return subsystems.find((sub) => sub.id === activeTab)!;
-  }, [activeTab]);
-
   return (
-    <main className="app-shell" style={{ padding: "16px 0 32px" }}>
-      <section className="masthead" style={{ marginBottom: "16px" }}>
+    <main className="app-shell" style={{ padding: "12px 0 20px", height: "calc(100vh - 84px)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* Page Header (Compacted) */}
+      <section className="masthead" style={{ marginBottom: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
         <div>
-          <p className="eyebrow">Machine Learning Core</p>
-          <h1 style={{ fontSize: "2.5rem" }}>AI Subsystems & Models</h1>
-          <p className="subhead" style={{ marginTop: "8px", fontSize: "0.95rem" }}>
-            The orchestrator integrates four specialized ML engines handling language interpretation, TSP optimization, vision checks, and restocking.
-          </p>
+          <p className="eyebrow" style={{ fontSize: "0.75rem", marginBottom: "2px" }}>Machine Learning Core</p>
+          <h1 style={{ fontSize: "1.75rem", lineHeight: 1.1 }}>AI Subsystems</h1>
         </div>
       </section>
 
-      <div className="models-tabs" style={{ margin: "12px 0 20px", paddingBottom: "8px" }}>
+      {/* Tabs list (Compacted) */}
+      <div className="models-tabs" style={{ margin: "4px 0 16px", paddingBottom: "6px", display: "flex", gap: "8px", flexShrink: 0 }}>
         {subsystems.map((sub) => (
           <button
             key={sub.id}
-            onClick={() => setActiveTab(sub.id)}
             className={`model-tab-btn ${activeTab === sub.id ? "active" : ""}`}
+            onClick={() => setActiveTab(sub.id)}
             style={{ padding: "8px 14px", fontSize: "0.85rem" }}
           >
-            <Cpu size={14} />
+            {sub.icon}
             <span>{sub.name}</span>
           </button>
         ))}
       </div>
 
-      <div className="model-showcase" style={{ gap: "20px" }}>
-        {/* Left Card: Technical Details */}
-        <div className="erd-card model-details-card" style={{ padding: "20px", gap: "16px", background: "var(--panel)" }}>
+      {/* Side-by-side details and playground, fitting full remaining height */}
+      <div className="model-showcase" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", flex: 1, overflow: "hidden" }}>
+        
+        {/* Left Card: Subsystem technical description details */}
+        <div
+          className="erd-card model-details-card"
+          style={{
+            padding: "20px",
+            background: "var(--panel)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px",
+            overflowY: "auto",
+            height: "100%"
+          }}
+        >
           <div className="model-title-block" style={{ gap: "4px" }}>
-            <span className="model-meta-tag" style={{ fontSize: "0.7rem", padding: "2px 8px" }}>{activeSubsystem.modelType}</span>
-            <h2 style={{ fontSize: "1.4rem", color: "var(--ink)", fontWeight: 800 }}>{activeSubsystem.name}</h2>
-            <p className="eyebrow" style={{ color: "var(--muted)", textTransform: "none", letterSpacing: 0, fontWeight: 500, fontSize: "0.95rem" }}>
+            <span className="model-meta-tag" style={{ fontSize: "0.65rem", padding: "1px 6px" }}>{activeSubsystem.modelType}</span>
+            <h2 style={{ fontSize: "1.3rem", color: "var(--ink)", fontWeight: 800, margin: "4px 0 2px" }}>{activeSubsystem.name}</h2>
+            <p className="eyebrow" style={{ color: "var(--muted)", textTransform: "none", letterSpacing: 0, fontWeight: 500, fontSize: "0.85rem", margin: 0 }}>
               {activeSubsystem.tagline}
             </p>
           </div>
 
-          <p className="model-desc" style={{ fontSize: "0.9rem", lineHeight: "1.5" }}>{activeSubsystem.description}</p>
+          <p className="model-desc" style={{ fontSize: "0.85rem", lineHeight: "1.4", margin: 0 }}>{activeSubsystem.description}</p>
 
-          <div className="model-metrics-grid" style={{ gap: "12px" }}>
-            <div className="model-metric-card" style={{ padding: "12px", background: "rgba(0,0,0,0.01)" }}>
-              <span style={{ fontSize: "0.7rem" }}>Dataset Used</span>
-              <strong style={{ fontSize: "1.1rem", color: "var(--ink)" }}>{activeSubsystem.id === "nlp" ? "Synthesized" : activeSubsystem.id === "cv" ? "SKU-110K" : activeSubsystem.id === "recsys" ? "Instacart" : "Simulated"}</strong>
-              <p style={{ fontSize: "0.7rem", color: "var(--muted)", marginTop: "2px" }}>{activeSubsystem.dataset}</p>
+          <div className="model-metrics-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+            <div className="model-metric-card" style={{ padding: "10px", background: "rgba(0,0,0,0.01)" }}>
+              <span style={{ fontSize: "0.65rem" }}>Dataset Used</span>
+              <strong style={{ fontSize: "1rem", color: "var(--ink)" }}>
+                {activeSubsystem.id === "nlp" ? "Synthesized" : activeSubsystem.id === "cv" ? "SKU-110K" : activeSubsystem.id === "recsys" ? "Instacart" : "Simulated"}
+              </strong>
+              <p style={{ fontSize: "0.65rem", color: "var(--muted)", marginTop: "2px", margin: 0 }}>{activeSubsystem.dataset}</p>
             </div>
-            <div className="model-metric-card" style={{ padding: "12px", background: "rgba(0,0,0,0.01)" }}>
-              <span style={{ fontSize: "0.7rem" }}>{activeSubsystem.targetMetric} Target</span>
-              <strong className="text-mint" style={{ fontSize: "1.1rem" }}>{activeSubsystem.targetValue}</strong>
-              <p style={{ fontSize: "0.7rem", color: "var(--muted)", marginTop: "2px" }}>Validated performance threshold</p>
+            <div className="model-metric-card" style={{ padding: "10px", background: "rgba(0,0,0,0.01)" }}>
+              <span style={{ fontSize: "0.65rem" }}>{activeSubsystem.targetMetric} Target</span>
+              <strong className="text-mint" style={{ fontSize: "1rem" }}>{activeSubsystem.targetValue}</strong>
+              <p style={{ fontSize: "0.65rem", color: "var(--muted)", marginTop: "2px", margin: 0 }}>Performance threshold</p>
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             <div className="panel-title" style={{ margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
-              <BookOpen size={14} />
-              <h4 style={{ color: "var(--ink)", fontWeight: 700, fontSize: "0.9rem" }}>Key Pipelines & Objectives</h4>
+              <BookOpen size={14} style={{ color: "var(--mint)" }} />
+              <h4 style={{ color: "var(--ink)", fontWeight: 700, fontSize: "0.85rem", margin: 0 }}>Key Pipelines & Objectives</h4>
             </div>
-            <ul style={{ color: "var(--muted)", fontSize: "0.85rem", lineHeight: "1.5", paddingLeft: "16px", display: "flex", flexDirection: "column", gap: "4px", margin: 0 }}>
+            <ul style={{ color: "var(--muted)", fontSize: "0.78rem", lineHeight: "1.4", paddingLeft: "14px", display: "flex", flexDirection: "column", gap: "4px", margin: 0 }}>
               {activeSubsystem.points.map((p, index) => (
                 <li key={index}>{p}</li>
               ))}
@@ -255,43 +264,53 @@ export default function ModelsPage() {
           </div>
         </div>
 
-        {/* Right Card: Interactive Playground or Visualization */}
-        <div className="erd-card playground-card" style={{ padding: "20px", minHeight: "360px", background: "var(--panel)" }}>
+        {/* Right Card: Subsystem interactive playground */}
+        <div
+          className="erd-card playground-card"
+          style={{
+            padding: "20px",
+            background: "var(--panel)",
+            display: "flex",
+            flexDirection: "column",
+            height: "100%",
+            overflow: "hidden"
+          }}
+        >
           {activeTab === "nlp" ? (
-            <div>
-              <div className="panel-title" style={{ margin: "0 0 10px", display: "flex", alignItems: "center", gap: "8px" }}>
-                <Sparkles size={16} />
-                <h2>NLP Interpreter Playground</h2>
+            <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+              <div className="panel-title" style={{ margin: "0 0 6px", display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+                <Sparkles size={16} style={{ color: "var(--mint)" }} />
+                <h2 style={{ fontSize: "1.1rem" }}>NLP Interpreter Playground</h2>
               </div>
-              <p style={{ color: "var(--muted)", fontSize: "0.85rem", lineHeight: "1.4" }}>
-                Type unstructured orders below to test our entity extractor parser in real-time.
+              <p style={{ color: "var(--muted)", fontSize: "0.8rem", lineHeight: "1.3", margin: "0 0 10px", flexShrink: 0 }}>
+                Type unstructured instructions to test entity extraction in real-time.
               </p>
 
-              <div className="nlp-playground" style={{ gap: "12px", marginTop: "12px" }}>
-                <div className="nlp-input-wrapper" style={{ gap: "4px" }}>
-                  <label htmlFor="nlpPlaygroundInput" style={{ fontSize: "0.7rem" }}>Unstructured Order Input</label>
+              <div className="nlp-playground" style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1, overflow: "hidden" }}>
+                <div className="nlp-input-wrapper" style={{ gap: "4px", flexShrink: 0 }}>
+                  <label htmlFor="nlpPlaygroundInput" style={{ fontSize: "0.65rem", fontWeight: 700 }}>Unstructured Order Input</label>
                   <textarea
                     id="nlpPlaygroundInput"
                     className="nlp-textarea"
                     value={playgroundInput}
                     onChange={(e) => setPlaygroundInput(e.target.value)}
                     placeholder="E.g., I want 2 whole milks, a dozen eggs, and bananas..."
-                    style={{ minHeight: "56px", padding: "8px 12px", fontSize: "0.85rem" }}
+                    style={{ minHeight: "50px", padding: "8px 10px", fontSize: "0.8rem" }}
                   />
                 </div>
 
-                <div className="nlp-parsed-output">
-                  <span className="nlp-output-header">Tokenizer Entity Extraction</span>
+                <div className="nlp-parsed-output" style={{ flex: 1, display: "flex", flexDirection: "column", overflowY: "auto", padding: "12px", gap: "8px" }}>
+                  <span className="nlp-output-header" style={{ fontSize: "0.65rem" }}>Tokenizer Entity Extraction</span>
                   
                   {parsedItems.length === 0 ? (
-                    <div style={{ color: "var(--coral)", fontSize: "0.8rem" }}>No matching catalog SKUs detected.</div>
+                    <div style={{ color: "var(--coral)", fontSize: "0.75rem" }}>No matching catalog SKUs detected.</div>
                   ) : (
-                    <div className="nlp-token-list">
+                    <div className="nlp-token-list" style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
                       {parsedItems.map((item) => (
-                        <span key={item.sku_id} className="nlp-token detected" style={{ padding: "3px 8px", fontSize: "0.75rem" }}>
+                        <span key={item.sku_id} className="nlp-token detected" style={{ padding: "2px 6px", fontSize: "0.72rem" }}>
                           <strong>{item.name}</strong>
                           <span style={{ opacity: 0.6 }}>x{item.quantity}</span>
-                          <span style={{ fontSize: "0.65rem", padding: "1px 3px", background: "rgba(0,0,0,0.03)", borderRadius: "3px", color: "var(--muted)" }}>
+                          <span style={{ fontSize: "0.6rem", padding: "1px 2px", background: "rgba(0,0,0,0.03)", borderRadius: "2px", color: "var(--muted)" }}>
                             Fragility: {item.fragility}
                           </span>
                         </span>
@@ -299,8 +318,8 @@ export default function ModelsPage() {
                     </div>
                   )}
 
-                  <span className="nlp-output-header" style={{ marginTop: "4px" }}>Compiled SQL-Ready Parameters (JSON)</span>
-                  <pre className="nlp-json-block">
+                  <span className="nlp-output-header" style={{ marginTop: "4px", fontSize: "0.65rem" }}>Compiled SQL-Ready Parameters (JSON)</span>
+                  <pre className="nlp-json-block" style={{ margin: 0, padding: "8px", fontSize: "0.7rem", flex: 1, overflowY: "auto" }}>
                     <code>{JSON.stringify(parsedItems.map(item => ({
                       sku_id: item.sku_id,
                       quantity: item.quantity,
@@ -312,19 +331,20 @@ export default function ModelsPage() {
               </div>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", height: "100%", justifyContent: "center", alignItems: "center", textAlign: "center", gap: "16px", color: "var(--muted)", padding: "40px 0" }}>
-              <div className="logo-icon-wrapper" style={{ width: "54px", height: "54px", borderRadius: "50%" }}>
-                <Terminal size={22} />
+            <div style={{ display: "flex", flexDirection: "column", height: "100%", justifyContent: "center", alignItems: "center", textAlign: "center", gap: "12px", color: "var(--muted)", padding: "20px 0" }}>
+              <div className="logo-icon-wrapper" style={{ width: "48px", height: "48px", borderRadius: "50%" }}>
+                <Terminal size={20} />
               </div>
               <div>
-                <h3 style={{ color: "var(--ink)", marginBottom: "6px", fontSize: "1.1rem" }}>Subsystem Core Active</h3>
-                <p style={{ maxWidth: "300px", fontSize: "0.85rem", lineHeight: "1.4" }}>
+                <h3 style={{ color: "var(--ink)", marginBottom: "4px", fontSize: "1rem" }}>Subsystem Core Active</h3>
+                <p style={{ maxWidth: "260px", fontSize: "0.78rem", lineHeight: "1.3", margin: 0 }}>
                   This subsystem runs actively inside our simulation dashboard. Switch to the <strong>Simulation Dashboard</strong> page to interact with its live performance outputs.
                 </p>
               </div>
             </div>
           )}
         </div>
+
       </div>
     </main>
   );

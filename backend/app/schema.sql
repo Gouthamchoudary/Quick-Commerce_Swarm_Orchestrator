@@ -1,4 +1,6 @@
 CREATE TYPE order_state AS ENUM ('pending', 'routing', 'picking', 'dispatched');
+CREATE TYPE picker_status AS ENUM ('idle', 'picking', 'charging', 'maintenance');
+CREATE TYPE task_status AS ENUM ('assigned', 'active', 'completed', 'cancelled');
 
 CREATE TABLE locations (
   id SERIAL PRIMARY KEY,
@@ -41,7 +43,24 @@ CREATE TABLE order_items (
   PRIMARY KEY (order_id, sku_id)
 );
 
+CREATE TABLE pickers (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  status picker_status NOT NULL DEFAULT 'idle',
+  battery_percent INTEGER NOT NULL CHECK (battery_percent BETWEEN 0 AND 100),
+  current_x INTEGER NOT NULL DEFAULT 0,
+  current_y INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  picker_id INTEGER NOT NULL REFERENCES pickers(id),
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  status task_status NOT NULL DEFAULT 'assigned',
+  assigned_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX idx_locations_grid ON locations (grid_x, grid_y);
 CREATE INDEX idx_inventory_stock ON inventory (stock_count);
 CREATE INDEX idx_orders_state_created ON orders (state, created_at);
-
+CREATE INDEX idx_tasks_picker ON tasks (picker_id);

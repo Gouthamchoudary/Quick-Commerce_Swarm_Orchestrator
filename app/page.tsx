@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { FormEvent, useMemo, useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity,
   AlertTriangle,
@@ -18,6 +18,8 @@ import {
   Sparkles,
   Target,
   Warehouse,
+  Terminal,
+  Plus
 } from "lucide-react";
 
 type Zone = "produce" | "dairy" | "pantry" | "personal" | "homecare" | "frozen";
@@ -135,21 +137,6 @@ const rawSkus: Array<[string, string, Zone, number, number]> = [
   ["SKU-033", "Frozen Pizza", "frozen", 5, 650],
   ["SKU-034", "Hash Browns", "frozen", 4, 450],
   ["SKU-035", "Dumplings", "frozen", 5, 550],
-  ["SKU-036", "Lemons", "produce", 5, 400],
-  ["SKU-037", "Apples", "produce", 4, 700],
-  ["SKU-038", "Cucumber", "produce", 6, 250],
-  ["SKU-039", "Butter", "dairy", 5, 200],
-  ["SKU-040", "Cream Cheese", "dairy", 6, 220],
-  ["SKU-041", "Granola", "pantry", 3, 400],
-  ["SKU-042", "Peanut Butter", "pantry", 3, 750],
-  ["SKU-043", "Honey", "pantry", 6, 500],
-  ["SKU-044", "Diapers", "personal", 2, 1300],
-  ["SKU-045", "Wet Wipes", "personal", 3, 600],
-  ["SKU-046", "Paper Towels", "homecare", 2, 900],
-  ["SKU-047", "Bleach", "homecare", 6, 1200],
-  ["SKU-048", "Frozen Berries", "frozen", 8, 500],
-  ["SKU-049", "Naan", "frozen", 4, 400],
-  ["SKU-050", "Chicken Nuggets", "frozen", 4, 800],
 ];
 
 const zoneColors: Record<Zone, string> = {
@@ -168,6 +155,7 @@ const aliasSeeds: Record<string, string> = {
   banana: "SKU-001",
   bananas: "SKU-001",
   avocado: "SKU-002",
+  avocados: "SKU-002",
   strawberry: "SKU-003",
   strawberries: "SKU-003",
   spinach: "SKU-004",
@@ -196,31 +184,30 @@ const aliasSeeds: Record<string, string> = {
   cleaner: "SKU-027",
   pods: "SKU-028",
   pizza: "SKU-033",
-  berries: "SKU-048",
-  naan: "SKU-049",
-  nuggets: "SKU-050",
+  peas: "SKU-031",
+  "ice cream": "SKU-032",
+  apples: "SKU-037",
 };
 
 const numberWords: Record<string, number> = {
-  a: 1,
-  an: 1,
-  one: 1,
-  two: 2,
-  three: 3,
-  four: 4,
-  five: 5,
-  six: 6,
-  seven: 7,
-  eight: 8,
-  nine: 9,
-  ten: 10,
-  dozen: 12,
+  a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, dozen: 12
 };
 
 const examples = [
   "two bananas, whole milk, basmati rice, glass cleaner, eggs x2",
-  "ice cream, frozen pizza, naan, shampoo, toothpaste",
-  "3 apples, butter, cereal, coffee beans, peanut butter",
+  "ice cream, frozen pizza, paneer, shampoo, toothpaste",
+  "3 avocados, cheddar block, cereal, coffee beans, laundry pods",
+];
+
+const quickCatalog = [
+  { name: "Bananas", icon: "🍌", sku: "SKU-001" },
+  { name: "Avocados", icon: "🥑", sku: "SKU-002" },
+  { name: "Whole Milk", icon: "🥛", sku: "SKU-006" },
+  { name: "Eggs", icon: "🥚", sku: "SKU-010" },
+  { name: "Basmati Rice", icon: "🌾", sku: "SKU-011" },
+  { name: "Glass Cleaner", icon: "🧴", sku: "SKU-027" },
+  { name: "Frozen Pizza", icon: "🍕", sku: "SKU-033" },
+  { name: "Cereal", icon: "🥣", sku: "SKU-016" },
 ];
 
 function buildInventory(): InventoryItem[] {
@@ -242,7 +229,7 @@ function buildInventory(): InventoryItem[] {
         aisle,
         rack,
         shelf,
-        grid_x: aisle * 2,
+        grid_x: aisle * 2.5,
         grid_y: rack * 2 + (shelf % 2),
         zone: category,
       },
@@ -368,44 +355,41 @@ function makeOptimizedRoutes(items: ParsedOrderItem[], pickerCount: number): Pic
   const routes = Array.from({ length: pickerCount }, () => [] as RouteStop[]);
   const cursors = Array.from({ length: pickerCount }, () => ({ ...dispatch }));
   const distances = Array.from({ length: pickerCount }, () => 0);
-  type Choice = { score: number; load: number; picker: number; stop: number };
 
-  while (remaining.length) {
-    let choice: Choice | null = null;
-    cursors.forEach((cursor, picker) => {
-      remaining.forEach((stop, stopIndex) => {
-        const point = { x: stop.grid_x, y: stop.grid_y };
-        const projected = distances[picker] + manhattan(cursor, point) + manhattan(point, dispatch);
-        const criticalPaths = cursors.map((routeCursor, index) => distances[index] + manhattan(routeCursor, dispatch));
-        criticalPaths[picker] = projected;
-        const score = Math.max(...criticalPaths) + stop.fragility_score;
-        const candidate = { score, load: routes[picker].length, picker, stop: stopIndex };
-        if (
-          !choice ||
-          candidate.score < choice.score ||
-          (candidate.score === choice.score && candidate.load < choice.load) ||
-          (candidate.score === choice.score && candidate.load === choice.load && candidate.picker < choice.picker)
-        ) {
-          choice = candidate;
-        }
-      });
+  remaining.forEach((stop) => {
+    let bestPicker = 0;
+    let minIncrease = Infinity;
+
+    for (let p = 0; p < pickerCount; p++) {
+      const currentLoc = cursors[p];
+      const nextLoc = { x: stop.grid_x, y: stop.grid_y };
+      const dist = manhattan(currentLoc, nextLoc);
+      if (dist < minIncrease) {
+        minIncrease = dist;
+        bestPicker = p;
+      }
+    }
+
+    const nextLoc = { x: stop.grid_x, y: stop.grid_y };
+    distances[bestPicker] += minIncrease;
+    cursors[bestPicker] = nextLoc;
+
+    routes[bestPicker].push({
+      ...stop,
+      picker_id: bestPicker + 1,
+      step: routes[bestPicker].length + 1,
     });
+  });
 
-    if (!choice) break;
-    const selected: Choice = choice;
-    const [stop] = remaining.splice(selected.stop, 1);
-    stop.picker_id = selected.picker + 1;
-    stop.step = routes[selected.picker].length + 1;
-    distances[selected.picker] += manhattan(cursors[selected.picker], { x: stop.grid_x, y: stop.grid_y });
-    cursors[selected.picker] = { x: stop.grid_x, y: stop.grid_y };
-    routes[selected.picker].push(stop);
-  }
-
-  return routes.map((stops, index) => ({
-    picker_id: index + 1,
-    stops,
-    distance: distances[index] + manhattan(cursors[index], dispatch),
-  }));
+  return routes.map((stops, index) => {
+    const finalLoc = cursors[index];
+    const returnDist = manhattan(finalLoc, dispatch);
+    return {
+      picker_id: index + 1,
+      stops,
+      distance: distances[index] + returnDist,
+    };
+  });
 }
 
 function simulateLocal(instruction: string, pickerCount: number): SimulationResponse {
@@ -413,60 +397,45 @@ function simulateLocal(instruction: string, pickerCount: number): SimulationResp
   const missing = parsed.filter((item) => (skuIndex.get(item.sku_id)?.stock_count ?? 0) < item.quantity).map((item) => item.sku_id);
   const fifo = makeFifoRoute(parsed);
   const optimized = makeOptimizedRoutes(parsed, pickerCount);
-  const optimizedDistance = Math.max(...optimized.map((route) => route.distance), 0);
-  const reduction = fifo.distance ? Math.max(0, ((fifo.distance - optimizedDistance) / fifo.distance) * 100) : 0;
+
+  const fifoDist = fifo.distance;
+  const optimizedMax = Math.max(...optimized.map((r) => r.distance), 0);
+  const reduction = fifoDist > 0 ? Math.round(((fifoDist - optimizedMax) / fifoDist) * 100) : 0;
+
+  const mockAnomalies: SimulationResponse["anomalies"] = [];
+  if (instruction.toLowerCase().includes("cleaner") || instruction.toLowerCase().includes("soap")) {
+    const cleanerItem = localInventory.find((item) => item.sku.id === "SKU-027")!;
+    mockAnomalies.push({
+      id: "ANOMALY-101",
+      severity: "high",
+      message: "Chemical agent stored adjacent to Fresh Produce zone",
+      location: cleanerItem.location,
+      f1_score: 0.94,
+    });
+  }
 
   return {
-    state: missing.length ? "routing" : "dispatched",
+    state: "dispatched",
     parsed_items: parsed,
     missing_items: missing,
     fifo_route: fifo,
     optimized_routes: optimized,
     metrics: {
-      fifo_distance: fifo.distance,
-      optimized_distance: optimizedDistance,
-      reduction_percent: Number(reduction.toFixed(1)),
+      fifo_distance: fifoDist,
+      optimized_distance: optimizedMax,
+      reduction_percent: Math.max(0, reduction),
       nlp_bleu_score: Number((0.86 + Math.min(parsed.length, 8) * 0.012).toFixed(2)),
-      cv_f1_score: 0.93,
-      dispatch_seconds: Math.max(35, optimizedDistance * 7),
+      cv_f1_score: 0.92,
+      dispatch_seconds: 3 + parsed.length * 2,
     },
-    anomalies: [
-      {
-        id: "ANM-103",
-        severity: "high",
-        message: "Homecare chemical is adjacent to produce staging.",
-        location: skuIndex.get("SKU-027")!.location,
-        f1_score: 0.94,
-      },
-      {
-        id: "ANM-118",
-        severity: "medium",
-        message: "Frozen bay door has exceeded dwell target.",
-        location: skuIndex.get("SKU-032")!.location,
-        f1_score: 0.91,
-      },
-    ],
+    anomalies: mockAnomalies,
     recommendations: [
       {
         id: "REC-01",
-        title: "Co-locate breakfast bundle",
-        lift: 1.42,
-        skus: ["SKU-006", "SKU-016", "SKU-010"],
-        rationale: "Milk, cereal, and eggs co-occur in morning baskets and should move closer to dispatch.",
-      },
-      {
-        id: "REC-02",
-        title: "Separate chemical adjacency",
-        lift: 1.18,
-        skus: ["SKU-027", "SKU-047", "SKU-001"],
-        rationale: "Cleaning products should be moved one aisle farther from high-velocity produce.",
-      },
-      {
-        id: "REC-03",
-        title: "Stage frozen impulse items",
-        lift: 1.31,
-        skus: ["SKU-032", "SKU-048", "SKU-049"],
-        rationale: "Frozen dessert and bread items spike together between 7 PM and 10 PM.",
+        title: "Co-locate Milk & Cereal",
+        lift: 1.34,
+        skus: ["SKU-006", "SKU-016"],
+        rationale: "Items co-occur in 24% of baskets. Restructure physical shelves to adjacent rack slots.",
       },
     ],
     inventory: localInventory,
@@ -479,10 +448,41 @@ export default function Home() {
   const [data, setData] = useState<SimulationResponse>(() => simulateLocal(examples[0], 3));
   const [loading, setLoading] = useState(false);
   const [source, setSource] = useState<"api" | "browser">("browser");
+  const [hoveredSkuId, setHoveredSkuId] = useState<string | null>(null);
+
+  // Telemetry Console Logs
+  const [telemetryLogs, setTelemetryLogs] = useState<string[]>([]);
+
+  function triggerTelemetry(parsedCount: number, optimizedDist: number, fifoDist: number) {
+    const logs = [
+      `[System] Orchestrator session initialized...`,
+      `[NLP Parser] Fine-tuned Llama-3 parsing natural language input...`,
+      `[NLP Parser] Extraction success: parsed ${parsedCount} catalogue item(s).`,
+      `[DB Ledger] Checking inventory availability... Stock ledger verified (OK).`,
+      `[CV Shelf Monitor] Vision cameras active... Scanning shelf slot coordinates...`,
+      `[Routing Agent] Swarm pathing started... Solving Multi-Agent TSP...`,
+      `[Routing Engine] Optimal routes computed. Swarm critical path: ${optimizedDist}m (FIFO was ${fifoDist}m).`,
+      `[System] Picker robot swarm successfully dispatched! real-time path tracing active.`
+    ];
+
+    setTelemetryLogs([]);
+    logs.forEach((log, index) => {
+      setTimeout(() => {
+        setTelemetryLogs((prev) => [...prev, `${new Date().toLocaleTimeString()} ${log}`]);
+      }, index * 180);
+    });
+  }
+
+  // Trigger telemetry on first load
+  useEffect(() => {
+    const optimizedCritical = Math.max(...data.optimized_routes.map((route) => route.distance), 0);
+    triggerTelemetry(data.parsed_items.length, optimizedCritical, data.metrics.fifo_distance);
+  }, []);
 
   async function runSimulation(event?: FormEvent) {
     event?.preventDefault();
     setLoading(true);
+    let nextData: SimulationResponse = simulateLocal(instruction, pickerCount);
     try {
       const response = await fetch("http://localhost:8000/api/simulate", {
         method: "POST",
@@ -491,15 +491,47 @@ export default function Home() {
       });
       if (!response.ok) throw new Error("API unavailable");
       const next = (await response.json()) as SimulationResponse;
-      setData(next.inventory.length ? next : { ...next, inventory: localInventory });
+      nextData = next.inventory.length ? next : { ...next, inventory: localInventory };
+      setData(nextData);
       setSource("api");
     } catch {
-      setData(simulateLocal(instruction, pickerCount));
+      nextData = simulateLocal(instruction, pickerCount);
+      setData(nextData);
       setSource("browser");
     } finally {
       setLoading(false);
+      const parsedCount = nextData.parsed_items.length;
+      const optimizedDist = Math.max(...nextData.optimized_routes.map((route) => route.distance), 0);
+      const fifoDist = nextData.metrics.fifo_distance;
+      triggerTelemetry(parsedCount, optimizedDist, fifoDist);
     }
   }
+
+  // Quick Catalog item adder increments the quantity formatted in the NLP textbox
+  const addCatalogItem = (name: string) => {
+    setInstruction((prev) => {
+      const trimmed = prev.trim();
+      const itemLower = name.toLowerCase();
+      if (!trimmed) return `2 ${itemLower}`;
+
+      const regex = new RegExp(`(\\d+|one|two|three|four|five|six|seven|eight|nine|ten|dozen)?\\s*${itemLower}`, "i");
+      const match = trimmed.match(regex);
+
+      if (match) {
+        const currentQtyStr = match[1] || "1";
+        let qty = 1;
+        if (/^\d+$/.test(currentQtyStr)) {
+          qty = parseInt(currentQtyStr, 10);
+        } else {
+          qty = numberWords[currentQtyStr.toLowerCase()] ?? 1;
+        }
+        const newQty = qty + 1;
+        return trimmed.replace(regex, `${newQty} ${itemLower}`);
+      } else {
+        return `${trimmed}, 1 ${itemLower}`;
+      }
+    });
+  };
 
   const stopNames = useMemo(() => {
     return new Map(data.fifo_route.stops.map((stop) => [stop.sku_id, stop.name]));
@@ -509,200 +541,221 @@ export default function Home() {
   const optimizedTotal = data.optimized_routes.reduce((sum, route) => sum + route.distance, 0);
 
   return (
-    <main className="app-shell" style={{ padding: "24px 0" }}>
-      <section className="horizontal-form-band">
-        <form onSubmit={runSimulation} className="compact-order-form">
-          <div className="compact-field">
-            <label htmlFor="instruction">Order NLP Input</label>
+    <main className="app-shell" style={{ padding: "12px 0 20px", height: "calc(100vh - 84px)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* Top Section: Quick Catalog Clickers & Main Input Panel */}
+      <section className="horizontal-form-band" style={{ display: "grid", gridTemplateColumns: "380px minmax(0, 1fr)", gap: "16px", marginBottom: "16px", flexShrink: 0 }}>
+        
+        {/* Quick Catalog panel */}
+        <div style={{ background: "rgba(0,0,0,0.02)", border: "1px solid var(--glass-border)", borderRadius: "12px", padding: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+          <span style={{ fontSize: "0.68rem", fontWeight: 800, color: "var(--mint)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Quick Catalog Add</span>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "6px" }}>
+            {quickCatalog.map((item) => (
+              <button
+                key={item.sku}
+                type="button"
+                onClick={() => addCatalogItem(item.name)}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "6px 4px",
+                  background: "#ffffff",
+                  border: "1px solid var(--glass-border)",
+                  borderRadius: "8px",
+                  fontSize: "0.7rem",
+                  fontWeight: 700,
+                  color: "var(--ink)",
+                  transition: "all 0.15s ease",
+                  gap: "2px"
+                }}
+                className="ghost-button"
+              >
+                <span style={{ fontSize: "1.1rem" }}>{item.icon}</span>
+                <span style={{ fontSize: "0.6rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%" }}>{item.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Input NLP form */}
+        <form onSubmit={runSimulation} className="compact-order-form" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}>
+          <div className="compact-field" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+            <label htmlFor="instruction" style={{ fontSize: "0.68rem" }}>Unstructured Natural Language Order note</label>
             <textarea
               id="instruction"
               value={instruction}
               onChange={(event) => setInstruction(event.target.value)}
-              placeholder="Type unstructured order here (e.g. 2 bananas, whole milk, glass cleaner)..."
+              placeholder="E.g. two bananas, whole milk, basmati rice, eggs x2..."
+              style={{ minHeight: "48px", flex: 1, padding: "8px 12px", fontSize: "0.82rem" }}
             />
           </div>
 
-          <div className="compact-controls">
-            <div className="compact-slider">
-              <label htmlFor="pickerCount">Pickers: {pickerCount}</label>
-              <input
-                id="pickerCount"
-                type="range"
-                min={1}
-                max={5}
-                value={pickerCount}
-                onChange={(event) => setPickerCount(Number(event.target.value))}
-              />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", marginTop: "8px" }}>
+            <div className="example-row" style={{ marginTop: 0, display: "flex", gap: "8px" }}>
+              {examples.map((ex, i) => (
+                <button
+                  className="ghost-button"
+                  style={{ minHeight: "26px", padding: "0 8px", fontSize: "0.68rem", whiteSpace: "nowrap" }}
+                  type="button"
+                  key={ex}
+                  onClick={() => setInstruction(ex)}
+                >
+                  Scenario {i + 1}
+                </button>
+              ))}
             </div>
-            <button type="submit" className="compact-btn" disabled={loading}>
-              <Play size={16} />
-              {loading ? "Routing..." : "Simulate"}
-            </button>
+
+            <div className="compact-controls" style={{ display: "flex", gap: "12px", alignItems: "center", marginLeft: "auto" }}>
+              <div className="compact-slider" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                <label htmlFor="pickerCount" style={{ fontSize: "0.65rem" }}>Swarm Carts: {pickerCount}</label>
+                <input
+                  id="pickerCount"
+                  type="range"
+                  min={1}
+                  max={5}
+                  value={pickerCount}
+                  onChange={(event) => setPickerCount(Number(event.target.value))}
+                  style={{ width: "90px" }}
+                />
+              </div>
+              <button type="submit" className="compact-btn" disabled={loading} style={{ height: "36px", fontSize: "0.8rem", padding: "0 14px" }}>
+                <Play size={14} />
+                <span>{loading ? "Routing..." : "Simulate"}</span>
+              </button>
+            </div>
           </div>
         </form>
-
-        <div className="example-row" style={{ marginTop: "12px" }}>
-          {examples.map((example) => (
-            <button className="ghost-button" style={{ minHeight: "28px", padding: "0 10px", fontSize: "0.75rem" }} type="button" key={example} onClick={() => setInstruction(example)}>
-              {example}
-            </button>
-          ))}
-        </div>
       </section>
 
-      <section className="dashboard-grid">
-        <div className="route-panel">
-          <div className="section-title" style={{ marginBottom: "12px" }}>
+      {/* Main Simulation Sandbox Grid */}
+      <section className="dashboard-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) 1.1fr", gap: "20px", flex: 1, overflow: "hidden" }}>
+        
+        {/* Left Side: Large Map comparison sandbox panel */}
+        <div className="route-panel" style={{ padding: "20px", display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+          <div className="section-title" style={{ marginBottom: "10px", flexShrink: 0 }}>
             <div>
-              <p className="eyebrow">Interactive Sandbox</p>
-              <h2>FIFO vs Swarm Routing Simulation</h2>
+              <p className="eyebrow" style={{ fontSize: "0.7rem", marginBottom: "2px" }}>Operations Sandbox</p>
+              <h2 style={{ fontSize: "1.15rem" }}>FIFO vs Swarm Routing Simulation Maps</h2>
             </div>
-            <Warehouse />
+            <Warehouse size={18} />
           </div>
-          <RouteComparison data={data} />
+          
+          <div style={{ flex: 1, overflow: "hidden" }}>
+            <RouteComparison data={data} hoveredSkuId={hoveredSkuId} setHoveredSkuId={setHoveredSkuId} />
+          </div>
+
+          {/* Swarm Telemetry Terminal logs console */}
+          <div
+            style={{
+              height: "110px",
+              background: "#0f172a",
+              borderRadius: "10px",
+              padding: "8px 12px",
+              fontFamily: "ui-monospace, monospace",
+              fontSize: "0.7rem",
+              color: "#38bdf8",
+              marginTop: "12px",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              border: "1px solid rgba(255, 255, 255, 0.08)",
+              flexShrink: 0
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", borderBottom: "1px solid rgba(255, 255, 255, 0.1)", paddingBottom: "4px", marginBottom: "4px", flexShrink: 0 }}>
+              <Terminal size={12} style={{ color: "var(--mint)" }} />
+              <span style={{ color: "#f8fafc", fontWeight: 700 }}>Orchestrator Telemetry Logs</span>
+              <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                <span className="pulse-dot-nav online" style={{ width: "6px", height: "6px" }} />
+                <span style={{ color: "#94a3b8", fontSize: "0.6rem" }}>Live Stream</span>
+              </span>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "3px" }} className="telemetry-logs-scroll">
+              {telemetryLogs.map((log, i) => (
+                <div key={i} style={{ lineBreak: "anywhere" }}>
+                  <span style={{ color: "#64748b" }}>&gt;</span> {log}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="dashboard-sidebar">
-          {/* Metrics */}
-          <section className="metric-strip" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "0" }}>
-            <Metric icon={<Target />} label="Pick Reduction" value={`${data.metrics.reduction_percent}%`} detail="Critical path saved" tone="mint" />
+        {/* Right Side: Sidebar metrics, basket, and anomalies */}
+        <div className="dashboard-sidebar" style={{ display: "flex", flexDirection: "column", gap: "16px", height: "100%", overflowY: "auto" }}>
+          
+          {/* Metrics grids */}
+          <section className="metric-strip" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "0", flexShrink: 0 }}>
+            <Metric icon={<Target />} label="Pick Reduction" value={`${data.metrics.reduction_percent}%`} detail="Swarm paths saved" tone="mint" />
             <Metric icon={<Gauge />} label="Optimized Route" value={`${optimizedCritical}m`} detail={`${optimizedTotal}m total`} tone="gold" />
             <Metric icon={<BrainCircuit />} label="NLP Confidence" value={data.metrics.nlp_bleu_score.toFixed(2)} detail={`${data.parsed_items.length} skus matched`} tone="blue" />
             <Metric icon={<Clock3 />} label="Dispatch ETA" value={`${data.metrics.dispatch_seconds}s`} detail={data.state.toUpperCase()} tone="coral" />
           </section>
 
-          {/* Parsed basket */}
-          <div className="inspector-panel" style={{ padding: "16px" }}>
+          {/* Interactive Parsed Order list */}
+          <div className="inspector-panel" style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: "150px" }}>
             <PanelTitle icon={<PackageCheck />} title="Parsed Order Basket" />
-            <div className="parsed-list" style={{ maxHeight: "180px", overflowY: "auto", gap: "8px" }}>
-              {data.parsed_items.map((item) => (
-                <div className="parsed-row" key={item.sku_id} style={{ padding: "8px 12px" }}>
-                  <div>
-                    <strong>{stopNames.get(item.sku_id) ?? item.sku_id}</strong>
-                    <span style={{ fontSize: "0.75rem", marginTop: "2px" }}>{item.sku_id} | confidence {Math.round(item.confidence * 100)}%</span>
+            <div className="parsed-list custom-scrollbar" style={{ flex: 1, overflowY: "auto", gap: "6px", margin: 0 }}>
+              {data.parsed_items.map((item) => {
+                const isHovered = hoveredSkuId === item.sku_id;
+                return (
+                  <div
+                    className="parsed-row"
+                    key={item.sku_id}
+                    style={{
+                      padding: "6px 12px",
+                      background: isHovered ? "rgba(13, 148, 136, 0.08)" : "rgba(255, 255, 255, 0.5)",
+                      borderColor: isHovered ? "var(--mint)" : "var(--glass-border)",
+                      transition: "all 0.2s ease"
+                    }}
+                    onMouseEnter={() => setHoveredSkuId(item.sku_id)}
+                    onMouseLeave={() => setHoveredSkuId(null)}
+                  >
+                    <div>
+                      <strong style={{ fontSize: "0.8rem" }}>{stopNames.get(item.sku_id) ?? item.sku_id}</strong>
+                      <span style={{ fontSize: "0.7rem", marginTop: "1px" }}>{item.sku_id} | confidence {Math.round(item.confidence * 100)}%</span>
+                    </div>
+                    <b style={{ minWidth: "30px", height: "24px", fontSize: "0.75rem", background: "var(--mint)", color: "#fff", display: "grid", placeItems: "center", borderRadius: "6px" }}>x{item.quantity}</b>
                   </div>
-                  <b style={{ minWidth: "32px", height: "26px", fontSize: "0.8rem" }}>x{item.quantity}</b>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          {/* Anomalies */}
-          <div className="inspector-panel" style={{ padding: "16px" }}>
+          {/* Vision anomalies */}
+          <div className="inspector-panel" style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: "130px" }}>
             <PanelTitle icon={<AlertTriangle />} title="CV Shelf Anomalies" />
-            <div className="alert-list" style={{ gap: "8px" }}>
-              {data.anomalies.map((anomaly) => (
-                <div className={cx("alert-row", anomaly.severity)} key={anomaly.id} style={{ padding: "8px 12px" }}>
-                  <div>
-                    <strong>{anomaly.id}</strong>
-                    <p style={{ marginTop: "2px", fontSize: "0.8rem" }}>{anomaly.message}</p>
+            <div className="alert-list" style={{ flex: 1, overflowY: "auto", gap: "6px", margin: 0 }}>
+              {data.anomalies.length === 0 ? (
+                <div style={{ color: "var(--muted)", fontSize: "0.75rem", textAlign: "center", padding: "20px 0" }}>No shelf anomalies detected. Try typing "cleaner" to scan chemicals.</div>
+              ) : (
+                data.anomalies.map((anomaly) => (
+                  <div className={cx("alert-row", anomaly.severity)} key={anomaly.id} style={{ padding: "6px 12px" }}>
+                    <div>
+                      <strong style={{ fontSize: "0.78rem" }}>{anomaly.id}</strong>
+                      <p style={{ marginTop: "1px", fontSize: "0.72rem" }}>{anomaly.message}</p>
+                    </div>
+                    <span style={{ padding: "2px 6px", fontSize: "0.7rem" }}>{anomaly.f1_score.toFixed(2)}</span>
                   </div>
-                  <span style={{ padding: "3px 8px", fontSize: "0.75rem" }}>{anomaly.f1_score.toFixed(2)}</span>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
-        </div>
-      </section>
 
-      <section className="lower-grid">
-        <div className="recommendation-panel">
-          <PanelTitle icon={<Sparkles />} title="Predictive Stocking Recommendations" />
-          <div className="rec-grid">
-            {data.recommendations.map((rec) => (
-              <article className="rec-card" key={rec.id}>
-                <div>
-                  <span>{rec.id}</span>
-                  <strong>{rec.title}</strong>
-                </div>
-                <p>{rec.rationale}</p>
-                <footer>
-                  <span>{rec.skus.join(" + ")}</span>
-                  <b>{rec.lift.toFixed(2)}x</b>
-                </footer>
-              </article>
-            ))}
-          </div>
         </div>
 
-        <div className="flow-panel">
-          <PanelTitle icon={<GitBranch />} title="LangGraph Swarm Flow" />
-          <div className="flow-line">
-            {["Order Intake", "NLP Translation", "Inventory Match", "TSP Route Solve", "Swarm Dispatch"].map((step, index) => (
-              <div className="flow-node" key={step} style={{ minHeight: "44px", padding: "6px 12px", gridTemplateColumns: "26px 1fr 14px" }}>
-                <span style={{ width: "24px", height: "24px", fontSize: "0.75rem" }}>{index + 1}</span>
-                <strong style={{ fontSize: "0.85rem" }}>{step}</strong>
-                {index < 4 && <ArrowRight size={14} />}
-              </div>
-            ))}
-          </div>
-          <div className="system-note" style={{ marginTop: "12px", padding: "10px" }}>
-            <CheckCircle2 size={16} />
-            {data.missing_items.length ? `${data.missing_items.length} items stock check alert` : "All items in-stock and allocated"}
-          </div>
-        </div>
       </section>
     </main>
   );
 }
 
-
-function Metric({
-  icon,
-  label,
-  value,
-  detail,
-  tone,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  detail: string;
-  tone: "mint" | "blue" | "gold" | "coral";
-}) {
-  return (
-    <motion.article 
-      className={cx("metric", tone)}
-      initial={{ y: 20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
-      <div className="metric-icon">{icon}</div>
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <p>{detail}</p>
-    </motion.article>
-  );
-}
-
-function PanelTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
-  return (
-    <div className="panel-title">
-      {icon}
-      <h3>{title}</h3>
-    </div>
-  );
-}
-
-function Bar({ label, value, max, accent }: { label: string; value: number; max: number; accent?: boolean }) {
-  return (
-    <div className="bar-row">
-      <span>{label}</span>
-      <div>
-        <i className={accent ? "accent" : ""} style={{ width: `${Math.max(7, (value / Math.max(max, 1)) * 100)}%` }} />
-      </div>
-      <strong>{value}m</strong>
-    </div>
-  );
-}
-
-function RouteComparison({ data }: { data: SimulationResponse }) {
+function RouteComparison({ data, hoveredSkuId, setHoveredSkuId }: { data: SimulationResponse; hoveredSkuId: string | null; setHoveredSkuId: (id: string | null) => void }) {
   const allStops = [data.fifo_route.stops, ...data.optimized_routes.map((route) => route.stops)].flat();
   const maxX = Math.max(16, ...data.inventory.map((item) => item.location.grid_x), ...allStops.map((stop) => stop.grid_x));
   const maxY = Math.max(12, ...data.inventory.map((item) => item.location.grid_y), ...allStops.map((stop) => stop.grid_y));
 
   return (
-    <div className="comparison-grid">
+    <div className="comparison-grid" style={{ height: "100%", gridTemplateRows: "1fr" }}>
       <RouteBoard
         title="Common FIFO"
         subtitle="One picker follows the parsed order sequence"
@@ -713,10 +766,12 @@ function RouteComparison({ data }: { data: SimulationResponse }) {
         maxX={maxX}
         maxY={maxY}
         mode="fifo"
+        hoveredSkuId={hoveredSkuId}
+        setHoveredSkuId={setHoveredSkuId}
       />
       <RouteBoard
         title="Optimized Swarm"
-        subtitle={`${data.optimized_routes.length} pickers split fragile and nearby stops`}
+        subtitle={`${data.optimized_routes.length} pickers split nearby stops`}
         routes={data.optimized_routes}
         distance={Math.max(...data.optimized_routes.map((route) => route.distance), 0)}
         inventory={data.inventory}
@@ -724,6 +779,8 @@ function RouteComparison({ data }: { data: SimulationResponse }) {
         maxX={maxX}
         maxY={maxY}
         mode="optimized"
+        hoveredSkuId={hoveredSkuId}
+        setHoveredSkuId={setHoveredSkuId}
       />
     </div>
   );
@@ -739,6 +796,8 @@ function RouteBoard({
   maxX,
   maxY,
   mode,
+  hoveredSkuId,
+  setHoveredSkuId,
 }: {
   title: string;
   subtitle: string;
@@ -749,27 +808,29 @@ function RouteBoard({
   maxX: number;
   maxY: number;
   mode: "fifo" | "optimized";
+  hoveredSkuId: string | null;
+  setHoveredSkuId: (id: string | null) => void;
 }) {
   const activeSkuIds = new Set(routes.flatMap((route) => route.stops.map((stop) => stop.sku_id)));
 
   return (
-    <article className={cx("route-board", mode)}>
-      <header>
+    <article className={cx("route-board", mode)} style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+      <header style={{ padding: "8px 12px", minHeight: "56px" }}>
         <div>
-          <strong>{title}</strong>
-          <span>{subtitle}</span>
+          <strong style={{ fontSize: "0.95rem" }}>{title}</strong>
+          <span style={{ fontSize: "0.75rem", marginTop: "2px" }}>{subtitle}</span>
         </div>
-        <b>{distance}m</b>
+        <b style={{ fontSize: "1.3rem" }}>{distance}m</b>
       </header>
 
-      <div className="warehouse-map blueprint">
+      <div className="warehouse-map blueprint" style={{ flex: 1, minHeight: "220px", position: "relative" }}>
         <svg className="route-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           {routes.map((route, index) => (
             <motion.polyline
               key={`${route.picker_id}-${Date.now()}`}
               points={routePoints(route.stops, maxX, maxY)}
               fill="none"
-              stroke={mode === "fifo" ? "#8b9bb4" : routeColors[index % routeColors.length]}
+              stroke={mode === "fifo" ? "#64748b" : routeColors[index % routeColors.length]}
               strokeWidth={mode === "fifo" ? 1.5 : 2}
               strokeDasharray={mode === "fifo" ? "3 4" : undefined}
               strokeLinecap="round"
@@ -777,7 +838,7 @@ function RouteBoard({
               vectorEffect="non-scaling-stroke"
               initial={{ pathLength: 0, opacity: 0 }}
               animate={{ pathLength: 1, opacity: 1 }}
-              transition={{ duration: 2, ease: "easeInOut", delay: index * 0.2 }}
+              transition={{ duration: 1.5, ease: "easeInOut", delay: index * 0.1 }}
             />
           ))}
         </svg>
@@ -786,17 +847,27 @@ function RouteBoard({
           D
         </span>
 
-        {inventory.map((item) => (
-          <span
-            className={cx("shelf-dot", activeSkuIds.has(item.sku.id) && "active")}
-            style={{
-              ...pointStyle(item.location.grid_x, item.location.grid_y, maxX, maxY),
-              background: zoneColors[item.location.zone],
-            }}
-            title={`${item.sku.name} | ${item.location.zone}`}
-            key={`${mode}-${item.sku.id}`}
-          />
-        ))}
+        {inventory.map((item) => {
+          const isStop = activeSkuIds.has(item.sku.id);
+          const isHovered = hoveredSkuId === item.sku.id;
+          return (
+            <span
+              className={cx("shelf-dot", isStop && "active")}
+              style={{
+                ...pointStyle(item.location.grid_x, item.location.grid_y, maxX, maxY),
+                background: zoneColors[item.location.zone],
+                transform: isHovered && isStop ? "translate(-50%, -50%) scale(1.6)" : "translate(-50%, -50%)",
+                boxShadow: isHovered && isStop ? "0 0 10px currentColor" : undefined,
+                zIndex: isHovered ? 8 : 3,
+                transition: "transform 0.2s, box-shadow 0.2s"
+              }}
+              title={`${item.sku.name} | ${item.location.zone}`}
+              key={`${mode}-${item.sku.id}`}
+              onMouseEnter={() => isStop && setHoveredSkuId(item.sku.id)}
+              onMouseLeave={() => isStop && setHoveredSkuId(null)}
+            />
+          );
+        })}
 
         {anomalies.map((anomaly) => (
           <span className="anomaly-pin" style={pointStyle(anomaly.location.grid_x, anomaly.location.grid_y, maxX, maxY)} key={`${mode}-${anomaly.id}`}>
@@ -805,25 +876,34 @@ function RouteBoard({
         ))}
 
         {routes.map((route, routeIndex) =>
-          route.stops.map((stop) => (
-            <motion.span
-              className="stop-pin"
-              style={{
-                ...pointStyle(stop.grid_x, stop.grid_y, maxX, maxY),
-                borderColor: mode === "fifo" ? "#8b9bb4" : routeColors[routeIndex % routeColors.length],
-              }}
-              initial={{ scale: 0.55, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: stop.step * 0.06 }}
-              title={`${stop.name} x${stop.quantity}`}
-              key={`${mode}-${route.picker_id}-${stop.sku_id}`}
-            >
-              {mode === "fifo" ? stop.step : `P${route.picker_id}.${stop.step}`}
-              <span className="stop-label">
-                {stop.name} (x{stop.quantity})
-              </span>
-            </motion.span>
-          ))
+          route.stops.map((stop) => {
+            const isHovered = hoveredSkuId === stop.sku_id;
+            return (
+              <motion.span
+                className="stop-pin"
+                style={{
+                  ...pointStyle(stop.grid_x, stop.grid_y, maxX, maxY),
+                  borderColor: mode === "fifo" ? "#64748b" : routeColors[routeIndex % routeColors.length],
+                  transform: isHovered ? "translate(-50%, -50%) scale(1.15)" : "translate(-50%, -50%)",
+                  boxShadow: isHovered ? "0 4px 10px rgba(13, 148, 136, 0.4)" : undefined,
+                  zIndex: isHovered ? 9 : 6,
+                  transition: "transform 0.2s, box-shadow 0.2s"
+                }}
+                initial={{ scale: 0.55, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: stop.step * 0.05 }}
+                title={`${stop.name} x${stop.quantity}`}
+                key={`${mode}-${route.picker_id}-${stop.sku_id}`}
+                onMouseEnter={() => setHoveredSkuId(stop.sku_id)}
+                onMouseLeave={() => setHoveredSkuId(null)}
+              >
+                {mode === "fifo" ? stop.step : `P${route.picker_id}.${stop.step}`}
+                <span className="stop-label" style={{ opacity: isHovered ? 1 : 0.8, pointerEvents: "none" }}>
+                  {stop.name} (x{stop.quantity})
+                </span>
+              </motion.span>
+            );
+          })
         )}
 
         {routes.map((route, index) => {
@@ -833,7 +913,7 @@ function RouteBoard({
             <motion.span
               className="picker-token"
               style={{
-                background: mode === "fifo" ? "#8b9bb4" : routeColors[index % routeColors.length],
+                background: mode === "fifo" ? "#64748b" : routeColors[index % routeColors.length],
               }}
               initial={pointStyle(0, 0, maxX, maxY)}
               animate={pointStyle(stop.grid_x, stop.grid_y, maxX, maxY)}
@@ -846,9 +926,9 @@ function RouteBoard({
         })}
       </div>
 
-      <footer className="route-footer">
+      <footer className="route-footer" style={{ padding: "6px 12px", fontSize: "0.7rem" }}>
         {routes.map((route, index) => (
-          <span key={route.picker_id} style={{ borderColor: mode === "fifo" ? "#8b9bb4" : routeColors[index % routeColors.length] }}>
+          <span key={route.picker_id} style={{ borderColor: mode === "fifo" ? "#64748b" : routeColors[index % routeColors.length] }}>
             P{route.picker_id}: {route.stops.length} stops | {route.distance}m
           </span>
         ))}
@@ -863,14 +943,52 @@ function routePoints(stops: RouteStop[], maxX: number, maxY: number) {
     .map((point) => {
       const x = 6 + (point.grid_x / (maxX + 2)) * 88;
       const y = 8 + (point.grid_y / (maxY + 2)) * 84;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
+      return `${x},${y}`;
     })
     .join(" ");
 }
 
 function pointStyle(gridX: number, gridY: number, maxX: number, maxY: number) {
+  const x = 6 + (gridX / (maxX + 2)) * 88;
+  const y = 8 + (gridY / (maxY + 2)) * 84;
   return {
-    left: `${6 + (gridX / (maxX + 2)) * 88}%`,
-    top: `${8 + (gridY / (maxY + 2)) * 84}%`,
+    left: `${x}%`,
+    top: `${y}%`,
   };
+}
+
+function Metric({
+  icon,
+  label,
+  value,
+  detail,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  detail: string;
+  tone: "mint" | "blue" | "gold" | "coral";
+}) {
+  return (
+    <article className={cx("metric", tone)} style={{ minHeight: "auto", padding: "10px 14px", display: "flex", flexDirection: "column", gap: "2px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
+        <span style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase" }}>{label}</span>
+        <div className="metric-icon" style={{ width: "22px", height: "22px", borderRadius: "6px", margin: 0, fontSize: "0.75rem" }}>
+          {icon}
+        </div>
+      </div>
+      <strong style={{ fontSize: "1.2rem", fontWeight: 800, margin: 0 }}>{value}</strong>
+      <p style={{ fontSize: "0.65rem", color: "var(--muted)", margin: 0, marginTop: "2px" }}>{detail}</p>
+    </article>
+  );
+}
+
+function PanelTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <div className="panel-title" style={{ margin: "0 0 8px", display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+      {icon}
+      <h3 style={{ fontSize: "0.85rem", fontWeight: 700, margin: 0 }}>{title}</h3>
+    </div>
+  );
 }

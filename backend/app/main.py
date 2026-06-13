@@ -14,6 +14,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):30\d{2}",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -37,4 +38,3 @@ def snapshot() -> dict[str, object]:
 @app.post("/api/simulate", response_model=SimulationResponse)
 def run_simulation(payload: SimulationRequest) -> SimulationResponse:
     return simulate(payload.instruction, payload.picker_count)
-

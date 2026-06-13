@@ -7,6 +7,49 @@ from .data import ALIASES, ANOMALIES, DISPATCH, INVENTORY, RECOMMENDATIONS, SKU_
 from .models import ParsedOrderItem, PickerRoute, RouteStop, SimulationMetrics, SimulationResponse
 
 
+NUMBER_WORDS = {
+    "a": 1,
+    "an": 1,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "dozen": 12,
+}
+
+
+def build_alias_index() -> list[tuple[str, str]]:
+    aliases = dict(ALIASES)
+    for item in INVENTORY:
+        name = item.sku.name.lower()
+        aliases[name] = item.sku.id
+        compact = re.sub(r"\b\d+\s*(pack|count|ct)\b", "", name).strip()
+        if compact:
+            aliases[compact] = item.sku.id
+        for token in re.findall(r"[a-z]+", compact):
+            if len(token) > 3:
+                aliases.setdefault(token, item.sku.id)
+    return sorted(aliases.items(), key=lambda item: len(item[0]), reverse=True)
+
+
+ALIAS_INDEX = build_alias_index()
+
+
+def parse_quantity(raw: str | None) -> int:
+    if not raw:
+        return 1
+    raw = raw.lower().strip()
+    if raw.isdigit():
+        return max(1, int(raw))
+    return NUMBER_WORDS.get(raw, 1)
+
+
 def manhattan(a: tuple[int, int], b: tuple[int, int]) -> int:
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
@@ -14,12 +57,22 @@ def manhattan(a: tuple[int, int], b: tuple[int, int]) -> int:
 def parse_instruction(instruction: str) -> list[ParsedOrderItem]:
     lowered = instruction.lower()
     quantities: dict[str, int] = defaultdict(int)
+    accepted_spans: list[tuple[int, int]] = []
 
-    for alias, sku_id in sorted(ALIASES.items(), key=lambda item: len(item[0]), reverse=True):
-        pattern = rf"(?:(\d+)\s+)?{re.escape(alias)}\b"
+    qty_token = r"(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|dozen)"
+    for alias, sku_id in ALIAS_INDEX:
+        pattern = (
+            rf"(?:\b(?P<before>{qty_token})\s*(?:x|qty|quantity|:|qty:|quantity:|-)?\s*(?:packs?\s+of\s+|bottles?\s+of\s+|bags?\s+of\s+|pcs?\s+of\s+)?)?"
+            rf"\b{re.escape(alias)}s?\b"
+            rf"(?:\s*(?:x|qty|quantity|:|qty:|quantity:|-)?\s*(?P<after>{qty_token})\s*x?\b)?"
+        )
         for match in re.finditer(pattern, lowered):
-            quantity = int(match.group(1) or 1)
+            span = match.span()
+            if any(max(span[0], used[0]) < min(span[1], used[1]) for used in accepted_spans):
+                continue
+            quantity = parse_quantity(match.group("before") or match.group("after"))
             quantities[sku_id] += quantity
+            accepted_spans.append(span)
 
     if not quantities:
         for fallback in ["SKU-001", "SKU-006", "SKU-011", "SKU-027", "SKU-010"]:

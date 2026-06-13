@@ -81,14 +81,22 @@ def optimized_routes(items: list[ParsedOrderItem], picker_count: int) -> list[Pi
     distances = [0 for _ in range(picker_count)]
 
     while remaining:
-        best_choice: tuple[int, int, int] | None = None
+        best_choice: tuple[int, int, int, int] | None = None
         for picker_id, cursor in enumerate(cursors):
             for index, stop in enumerate(remaining):
-                score = manhattan(cursor, (stop.grid_x, stop.grid_y)) + stop.fragility_score
-                if best_choice is None or score < best_choice[0]:
-                    best_choice = (score, picker_id, index)
+                point = (stop.grid_x, stop.grid_y)
+                projected_route = distances[picker_id] + manhattan(cursor, point) + manhattan(point, DISPATCH)
+                current_routes = [
+                    distances[i] + manhattan(cursors[i], DISPATCH)
+                    for i in range(picker_count)
+                ]
+                current_routes[picker_id] = projected_route
+                score = max(current_routes) + stop.fragility_score
+                load = len(routes[picker_id])
+                if best_choice is None or (score, load, picker_id) < best_choice[:3]:
+                    best_choice = (score, load, picker_id, index)
 
-        _, picker_id, stop_index = best_choice
+        _, _, picker_id, stop_index = best_choice
         stop = remaining.pop(stop_index)
         stop.picker_id = picker_id + 1
         stop.step = len(routes[picker_id]) + 1
@@ -137,4 +145,3 @@ def simulate(instruction: str, picker_count: int) -> SimulationResponse:
         recommendations=RECOMMENDATIONS,
         inventory=INVENTORY,
     )
-

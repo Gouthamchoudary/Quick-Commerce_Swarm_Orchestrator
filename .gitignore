@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+dist/
+build/
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.local
+.pytest_cache/
+

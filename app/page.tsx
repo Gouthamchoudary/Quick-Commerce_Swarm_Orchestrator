@@ -476,142 +476,122 @@ export default function Home() {
   return (
     <main className="app-shell home-shell">
 
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="home-hero">
-        <div className="hero-copy">
-          <p className="eyebrow">AI Dark Store Control Room</p>
-          <h1>Operations Sandbox</h1>
-          <p className="subhead">
-            Type any messy customer order in natural language. Watch AI parse it, build optimal swarm routes,
-            and visualise multi-robot dispatch across a live warehouse blueprint — all in your browser.
-          </p>
-          <div className="hero-tech-pills">
-            <span>🧠 NLP Order Parser</span>
-            <span>🤖 Swarm Routing (TSP)</span>
-            <span>📷 CV Anomaly Detection</span>
-            <span>📊 3NF SQL Schema</span>
-          </div>
-        </div>
-        <div className="hero-status-strip" aria-label="Simulation status">
-          <span><CheckCircle2 size={14}/>{source==="api"?"FastAPI connected":"Browser simulation"}</span>
-          <span><Activity size={14}/>{data.parsed_items.length} SKUs parsed</span>
-          <span><Bot size={14}/>{activePickers} of {pickerCount} carts active</span>
-          <span><TrendingDown size={14}/>{data.metrics.reduction_percent}% distance saved</span>
-        </div>
-      </section>
+      {/* ── SIMULATION FIRST — the star of the show ───────────────────────── */}
+      <section className="sim-section sim-hero">
 
-      {/* ── Command Panel ────────────────────────────────────────────────── */}
-      <section className="home-control-grid">
-        <form onSubmit={runSimulation} className="command-card order-command">
-          <div className="command-card-header">
-            <div>
-              <p className="eyebrow">Order Input</p>
-              <h2>Natural language basket</h2>
-            </div>
-            <div className="scenario-actions">
-              <button className="ghost-button scenario-button active" type="button" onClick={()=>setInstruction(defaultOrder)}>
-                <CheckCircle2 size={13}/> Default
-              </button>
-              <button className="ghost-button scenario-button" type="button" onClick={generateRandomOrder}>
-                <Shuffle size={13}/> Random
-              </button>
+        {/* Compact command bar sits inside the sim card */}
+        <form className="sim-command-bar" onSubmit={runSimulation}>
+          <div className="scb-brand">
+            <Warehouse size={15}/>
+            <span>Q-Swarm Orchestrator</span>
+            <span className="scb-divider"/>
+            <span className="scb-tags">
+              <span>🧠 NLP</span><span>🤖 TSP Routing</span><span>📷 CV Anomaly</span>
+            </span>
+          </div>
+
+          <div className="scb-input-row">
+            <textarea
+              className="scb-textarea"
+              value={instruction}
+              onChange={e=>setInstruction(e.target.value)}
+              placeholder="Natural language order: two bananas, whole milk, eggs x2, basmati rice…"
+              onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); runSimulation(); }}}
+            />
+            <div className="scb-right">
+              <div className="scb-picker-row">
+                <Bot size={14}/>
+                <span className="scb-picker-num">{pickerCount}</span>
+                <span>carts</span>
+                <input type="range" min={1} max={5} value={pickerCount}
+                  onChange={e=>setPickerCount(Number(e.target.value))} className="scb-slider"/>
+              </div>
+              <div className="scb-buttons">
+                <button type="button" className="scb-random" onClick={generateRandomOrder} title="Random order">
+                  <Shuffle size={14}/> Random
+                </button>
+                <button type="submit" className="scb-run" disabled={loading}>
+                  {loading?<><Zap size={15}/> Routing…</>:<><Play size={15}/> Simulate</>}
+                </button>
+              </div>
             </div>
           </div>
-          <textarea
-            id="instruction" value={instruction}
-            onChange={e=>setInstruction(e.target.value)}
-            placeholder="E.g. two bananas, whole milk, basmati rice, eggs x2..."
-            className="order-textarea"
-          />
-          <div className="command-footer">
-            <label htmlFor="pickerCount" className="picker-control">
-              <span>Swarm Carts</span>
-              <strong>{pickerCount}</strong>
-              <input id="pickerCount" type="range" min={1} max={5} value={pickerCount}
-                onChange={e=>setPickerCount(Number(e.target.value))}/>
-            </label>
-            <button type="submit" className="compact-btn run-button" disabled={loading}>
-              {loading?<><Zap size={15}/>Routing…</>:<><Play size={15}/>Run Simulation</>}
+
+          {/* Catalog chips inline */}
+          <div className="scb-catalog">
+            {quickCatalog.map(item=>(
+              <button key={item.sku} type="button" className="scb-chip"
+                onClick={()=>addCatalogItem(item.name)}>
+                {item.icon} {item.name}
+              </button>
+            ))}
+            <button type="button" className="scb-chip scb-chip-default"
+              onClick={()=>setInstruction(defaultOrder)}>
+              ↺ Default
             </button>
           </div>
         </form>
 
-        <div className="command-card quick-catalog-card">
-          <div className="command-card-header compact">
-            <div><p className="eyebrow">Quick Add</p><h2>Catalog shortcuts</h2></div>
-            <Sparkles size={18}/>
+        {/* Stats bar — compact improvement summary */}
+        <div className="sim-stats-bar">
+          <div className="ssb-stat ssb-highlight">
+            <span className="ssb-value" style={{color:"var(--coral)"}}>{data.metrics.reduction_percent}%</span>
+            <span className="ssb-label">distance saved</span>
           </div>
-          <div className="quick-catalog-grid">
-            {quickCatalog.map(item=>(
-              <button key={item.sku} type="button" onClick={()=>addCatalogItem(item.name)} className="catalog-chip">
-                <span>{item.icon}</span><strong>{item.name}</strong>
-              </button>
-            ))}
+          <div className="ssb-divider"/>
+          <div className="ssb-stat">
+            <span className="ssb-value" style={{color:"var(--muted)",textDecoration:"line-through"}}>{data.metrics.fifo_distance.toFixed(1)}m</span>
+            <span className="ssb-label">FIFO route</span>
           </div>
-        </div>
-      </section>
-
-      {/* ── Improvement Banner ────────────────────────────────────────────── */}
-      <div className="improvement-banner">
-        <div className="imp-stat">
-          <div className="imp-pct">{data.metrics.reduction_percent}%</div>
-          <div className="imp-label">Distance Reduction<br/><span>Swarm vs FIFO</span></div>
-        </div>
-        <div className="imp-divider"/>
-        <div className="imp-stat">
-          <div className="imp-pct" style={{color:"var(--blue)"}}>{data.metrics.fifo_distance.toFixed(1)}m</div>
-          <div className="imp-label">FIFO Route<br/><span>Single picker</span></div>
-        </div>
-        <div className="imp-arrow"><ChevronRight size={28}/><ChevronRight size={28}/></div>
-        <div className="imp-stat">
-          <div className="imp-pct" style={{color:"var(--mint)"}}>{optimizedCritical.toFixed(1)}m</div>
-          <div className="imp-label">Swarm Critical Path<br/><span>{activePickers} pickers parallel</span></div>
-        </div>
-        <div className="imp-divider"/>
-        <div className="imp-stat">
-          <div className="imp-pct" style={{color:"var(--gold)"}}>{data.metrics.dispatch_seconds}s</div>
-          <div className="imp-label">Dispatch ETA<br/><span>NLP → Robot</span></div>
-        </div>
-        <div className="imp-divider"/>
-        <div className="imp-stat">
-          <div className="imp-pct" style={{color:"var(--purple)"}}>{data.metrics.nlp_bleu_score.toFixed(2)}</div>
-          <div className="imp-label">NLP BLEU Score<br/><span>Parser confidence</span></div>
-        </div>
-      </div>
-
-      {/* ── Simulation Section ─────────────────────────────────────────── */}
-      <section className="sim-section">
-        <div className="sim-header">
-          <div>
-            <p className="eyebrow">Warehouse Simulation</p>
-            <h2>FIFO vs Multi-Robot Swarm Routing</h2>
+          <ChevronRight size={16} style={{color:"var(--mint)",flexShrink:0}}/>
+          <div className="ssb-stat">
+            <span className="ssb-value" style={{color:"var(--mint)"}}>{optimizedCritical.toFixed(1)}m</span>
+            <span className="ssb-label">swarm path</span>
           </div>
-          {/* Animation Controls */}
-          <div className="anim-controls">
-            <span className="anim-step-badge">
-              {animStep<0?"Ready":animStep>=maxAnimSteps?`✓ Complete (${maxAnimSteps} steps)`:`Step ${animStep+1} / ${maxAnimSteps}`}
-            </span>
+          <div className="ssb-divider"/>
+          <div className="ssb-stat">
+            <span className="ssb-value">{activePickers}<span style={{fontSize:"0.8em",fontWeight:600}}>/{pickerCount}</span></span>
+            <span className="ssb-label">carts active</span>
+          </div>
+          <div className="ssb-divider"/>
+          <div className="ssb-stat">
+            <span className="ssb-value">{data.parsed_items.length}</span>
+            <span className="ssb-label">SKUs parsed</span>
+          </div>
+          <div className="ssb-divider"/>
+          <div className="ssb-stat">
+            <span className="ssb-value">{data.metrics.dispatch_seconds}s</span>
+            <span className="ssb-label">dispatch ETA</span>
+          </div>
+          <div className="ssb-divider"/>
+          {/* Animation controls inline */}
+          <div className="ssb-anim-controls">
             <div className="anim-speed-toggle">
-              {[["1x",1200],["2x",600],["3x",300]].map(([label,ms])=>(
+              {[["1×",1200],["2×",600],["3×",300]].map(([label,ms])=>(
                 <button key={label} className={cx("speed-btn",animSpeed===ms&&"active")}
                   onClick={()=>setAnimSpeed(ms as number)} type="button">{label}</button>
               ))}
             </div>
-            <button className="anim-btn reset" onClick={resetAnim} type="button" title="Reset"><RotateCcw size={15}/></button>
-            <button className="anim-btn step" onClick={stepAnim} type="button" title="Step forward" disabled={animStep>=maxAnimSteps}><ChevronRight size={15}/></button>
+            <button className="anim-btn reset" onClick={resetAnim} type="button" title="Reset"><RotateCcw size={13}/></button>
+            <button className="anim-btn step" onClick={stepAnim} type="button" title="Next step" disabled={animStep>=maxAnimSteps}><ChevronRight size={13}/></button>
             {isAnimating
-              ? <button className="anim-btn pause" onClick={pauseAnim} type="button"><Pause size={15}/> Pause</button>
-              : <button className="anim-btn play" onClick={startAnim} type="button" disabled={maxAnimSteps===0}><Play size={15}/> {animStep<0?"Animate":"Resume"}</button>
+              ? <button className="anim-btn pause" onClick={pauseAnim} type="button"><Pause size={13}/> Pause</button>
+              : <button className="anim-btn play" onClick={startAnim} type="button" disabled={maxAnimSteps===0}>
+                  <Play size={13}/> {animStep<0?"▶ Play":"Resume"}
+                </button>
             }
+            <span className="anim-step-badge">
+              {animStep<0?"Ready":animStep>=maxAnimSteps?`✓ Done`:`${animStep+1}/${maxAnimSteps}`}
+            </span>
           </div>
         </div>
 
-        {/* Two Maps Side by Side */}
+        {/* Two Maps — the main visual */}
         <div className="sim-maps-row">
           <RouteBoard
             key={`fifo-${simKey}`}
             title="FIFO — Single Picker"
-            subtitle="Order parsed as typed, one bot traverses all stops"
+            subtitle="One robot, all stops in order"
             routes={[data.fifo_route]}
             distance={data.metrics.fifo_distance}
             inventory={data.inventory}
@@ -625,8 +605,8 @@ export default function Home() {
           />
           <RouteBoard
             key={`swarm-${simKey}`}
-            title={`Swarm — ${activePickers} Robot Carts`}
-            subtitle="TSP-optimised parallel picking; bots cover nearest zones"
+            title={`Swarm — ${activePickers} Robots in Parallel`}
+            subtitle="TSP-optimised; each bot covers its nearest zone"
             routes={data.optimized_routes}
             distance={optimizedCritical}
             inventory={data.inventory}
@@ -642,7 +622,7 @@ export default function Home() {
 
         {/* Zone Legend */}
         <div className="zone-legend">
-          <span className="zone-legend-label">Zone Map:</span>
+          <span className="zone-legend-label">Zones:</span>
           {(Object.keys(zoneColors) as Zone[]).map(zone=>(
             <span key={zone} className="zone-chip">
               <span className="zone-dot" style={{background:zoneColors[zone]}}/>
@@ -651,18 +631,21 @@ export default function Home() {
           ))}
           <span className="zone-chip"><span className="zone-dot" style={{background:"#0f172a"}}/>D Dispatch</span>
           <span className="zone-chip anomaly-chip">⚠ Anomaly</span>
+          <span style={{marginLeft:"auto",fontSize:"0.7rem",color:"var(--muted)"}}>
+            {source==="api"?"⚡ FastAPI":"🖥 Browser simulation"}
+          </span>
         </div>
 
-        {/* Telemetry Console */}
+        {/* Telemetry */}
         <div className="telemetry-panel">
           <div className="telemetry-header">
-            <Terminal size={13}/><span>Orchestrator Telemetry Log</span>
-            <span className="telemetry-live"><span className="pulse-dot-nav online"/>Live Stream</span>
+            <Terminal size={13}/><span>Orchestrator Pipeline Log</span>
+            <span className="telemetry-live"><span className="pulse-dot-nav online"/>Live</span>
           </div>
           <div className="telemetry-logs-scroll" ref={logRef}>
             <AnimatePresence initial={false}>
               {telemetryLogs.map((log,i)=>(
-                <motion.div key={i} initial={{opacity:0,x:-6}} animate={{opacity:1,x:0}} transition={{duration:0.25}}>
+                <motion.div key={i} initial={{opacity:0,x:-6}} animate={{opacity:1,x:0}} transition={{duration:0.2}}>
                   <span>&gt;</span> {log}
                 </motion.div>
               ))}
@@ -671,7 +654,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Bottom Info Row ────────────────────────────────────────────── */}
+      {/* ── Bottom Details (secondary, scroll to see) ─────────────────────── */}
       <section className="info-panels-row">
         {/* Parsed Order */}
         <div className="inspector-panel info-panel">
@@ -702,7 +685,7 @@ export default function Home() {
 
         {/* Swarm Status */}
         <div className="inspector-panel info-panel">
-          <PanelTitle icon={<Bot size={16}/>} title={`Swarm Status — ${pickerCount} Carts`}/>
+          <PanelTitle icon={<Bot size={16}/>} title={`Swarm — ${pickerCount} Carts`}/>
           <div className="swarm-status-list">
             {data.optimized_routes.map((route,idx)=>{
               const color=routeColors[idx%routeColors.length];
@@ -742,7 +725,7 @@ export default function Home() {
           <PanelTitle icon={<AlertTriangle size={16}/>} title="CV Shelf Anomalies"/>
           <div className="alert-list" style={{flex:1}}>
             {data.anomalies.length===0
-              ? <div className="empty-state">No anomalies detected.<br/><em style={{fontSize:"0.78rem"}}>Add "cleaner" to trigger chemical zone scan.</em></div>
+              ? <div className="empty-state">No anomalies detected.<br/><em style={{fontSize:"0.78rem"}}>Add "cleaner" to trigger CV scan.</em></div>
               : data.anomalies.map(a=>(
                   <div className={cx("alert-row",a.severity)} key={a.id}>
                     <div><strong>{a.id}</strong><p>{a.message}</p></div>
@@ -756,10 +739,7 @@ export default function Home() {
             {data.recommendations.map(r=>(
               <div key={r.id} className="rec-inline">
                 <span className="rec-lift">+{r.lift.toFixed(2)}× lift</span>
-                <div>
-                  <strong>{r.title}</strong>
-                  <p>{r.rationale}</p>
-                </div>
+                <div><strong>{r.title}</strong><p>{r.rationale}</p></div>
               </div>
             ))}
           </div>

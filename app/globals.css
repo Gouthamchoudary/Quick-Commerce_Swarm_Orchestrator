@@ -2694,3 +2694,280 @@ input[type="range"] {
     gap: 6px;
   }
 }
+
+/* ==========================================================================
+   Sim-Hero: simulation-first layout overrides
+   ========================================================================== */
+
+/* Remove any top gap — sim section IS the hero */
+.sim-hero {
+  margin-top: 0;
+}
+
+/* ==========================================================================
+   Compact Command Bar (inside the sim card)
+   ========================================================================== */
+.sim-command-bar {
+  padding: 14px 18px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(255,255,255,0.6);
+  flex-shrink: 0;
+}
+
+/* Brand row */
+.scb-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.scb-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--glass-border);
+  flex-shrink: 0;
+}
+.scb-tags {
+  display: flex;
+  gap: 6px;
+}
+.scb-tags span {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: rgba(0,0,0,0.04);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  padding: 2px 7px;
+}
+
+/* Input row */
+.scb-input-row {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
+.scb-textarea {
+  flex: 1;
+  min-height: 44px;
+  max-height: 44px;
+  resize: none;
+  border: 1.5px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  color: var(--ink);
+  background: rgba(255,255,255,0.8);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  line-height: 1.45;
+  overflow: hidden;
+}
+.scb-textarea:focus {
+  border-color: var(--mint);
+  box-shadow: 0 0 0 3px rgba(13,148,136,0.12);
+  max-height: 90px;
+  overflow: auto;
+}
+.scb-textarea::placeholder { color: #94a3b8; }
+
+.scb-right {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.scb-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.scb-picker-num {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: var(--mint);
+  min-width: 16px;
+  text-align: center;
+}
+.scb-slider {
+  width: 80px;
+  accent-color: var(--mint);
+  cursor: pointer;
+}
+
+.scb-buttons {
+  display: flex;
+  gap: 6px;
+}
+.scb-random {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1.5px solid var(--glass-border);
+  background: rgba(255,255,255,0.7);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.scb-random:hover {
+  background: rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.12);
+}
+.scb-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  border: none;
+  background: var(--mint);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(13,148,136,0.35);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.scb-run:hover:not(:disabled) {
+  background: #0b8078;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(13,148,136,0.4);
+}
+.scb-run:disabled { opacity: 0.6; cursor: default; transform: none; }
+
+/* Catalog chips strip */
+.scb-catalog {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding-bottom: 12px;
+}
+.scb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  border: 1px solid var(--glass-border);
+  background: rgba(255,255,255,0.7);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.scb-chip:hover {
+  background: rgba(13,148,136,0.07);
+  border-color: rgba(13,148,136,0.25);
+  color: var(--mint);
+  transform: translateY(-1px);
+}
+.scb-chip-default {
+  border-style: dashed;
+  color: var(--muted);
+}
+.scb-chip-default:hover { color: var(--ink); }
+
+/* ==========================================================================
+   Stats Bar (inline improvement summary between command bar and maps)
+   ========================================================================== */
+.sim-stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 18px;
+  background: rgba(15,23,42,0.025);
+  border-bottom: 1px solid var(--glass-border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  min-height: 52px;
+}
+.ssb-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8px 16px;
+  gap: 1px;
+}
+.ssb-highlight {
+  background: rgba(225,29,72,0.04);
+}
+.ssb-value {
+  font-size: 1.15rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+.ssb-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.ssb-divider {
+  width: 1px;
+  height: 32px;
+  background: var(--glass-border);
+  flex-shrink: 0;
+  align-self: center;
+}
+.ssb-anim-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 8px 0;
+}
+.ssb-anim-controls .anim-step-badge {
+  font-size: 0.72rem;
+  padding: 4px 10px;
+}
+
+/* Make maps bigger since we removed the hero */
+.sim-hero .sim-warehouse-map {
+  min-height: clamp(420px, 48vh, 640px);
+}
+
+@media (max-width: 1024px) {
+  .sim-stats-bar {
+    padding: 0 14px;
+    gap: 0;
+  }
+  .ssb-stat { padding: 6px 12px; }
+  .ssb-value { font-size: 1rem; }
+  .ssb-anim-controls { margin-left: 0; flex-wrap: wrap; }
+}
+
+@media (max-width: 720px) {
+  .scb-input-row { flex-direction: column; }
+  .scb-right { flex-direction: row; align-items: center; }
+  .scb-picker-row { flex: 1; }
+  .scb-buttons { flex-shrink: 0; }
+  .sim-stats-bar { overflow-x: auto; flex-wrap: nowrap; }
+  .ssb-stat { padding: 6px 10px; }
+  .ssb-value { font-size: 0.95rem; }
+  .ssb-anim-controls { padding: 6px; gap: 4px; }
+}
+

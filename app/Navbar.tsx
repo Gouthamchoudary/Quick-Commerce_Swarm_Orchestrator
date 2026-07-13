@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Warehouse, Database, Cpu, GitBranch, Github } from "lucide-react";
+import { Warehouse, Database, GitBranch, Github } from "lucide-react";
 import { useState, useEffect } from "react";
 
 function getApiBaseUrl() {
@@ -45,7 +45,6 @@ export default function Navbar() {
     { name: "Simulation Dashboard", path: "/", icon: <Warehouse size={18} /> },
     { name: "SQL Schema", path: "/schema", icon: <Database size={18} /> },
     { name: "How it Works", path: "/architecture", icon: <GitBranch size={18} /> },
-    { name: "How it Works", path: "/models", icon: <Cpu size={18} /> },
   ];
 
   return (

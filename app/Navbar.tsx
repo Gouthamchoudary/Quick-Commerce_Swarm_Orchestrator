@@ -43,9 +43,9 @@ export default function Navbar() {
 
   const navItems = [
     { name: "Simulation Dashboard", path: "/", icon: <Warehouse size={18} /> },
-    { name: "Agent Architecture", path: "/architecture", icon: <GitBranch size={18} /> },
-    { name: "AI Subsystems", path: "/models", icon: <Cpu size={18} /> },
-    { name: "SQL Schema (3NF)", path: "/schema", icon: <Database size={18} /> },
+    { name: "SQL Schema", path: "/schema", icon: <Database size={18} /> },
+    { name: "How it Works", path: "/architecture", icon: <GitBranch size={18} /> },
+    { name: "How it Works", path: "/models", icon: <Cpu size={18} /> },
   ];
 
   return (

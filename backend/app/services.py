@@ -55,6 +55,7 @@ def manhattan(a: tuple[int, int], b: tuple[int, int]) -> int:
 
 
 def parse_instruction(instruction: str) -> list[ParsedOrderItem]:
+    """Deterministic parser used as the reliable local fallback for the AI chain."""
     lowered = instruction.lower()
     quantities: dict[str, int] = defaultdict(int)
     accepted_spans: list[tuple[int, int]] = []
@@ -164,8 +165,10 @@ def optimized_routes(items: list[ParsedOrderItem], picker_count: int) -> list[Pi
     return response
 
 
-def simulate(instruction: str, picker_count: int) -> SimulationResponse:
-    parsed = parse_instruction(instruction)
+def build_simulation_response(
+    parsed: list[ParsedOrderItem], picker_count: int
+) -> SimulationResponse:
+    """Build the simulator result after the order-parsing workflow has completed."""
     missing = [
         item.sku_id
         for item in parsed
@@ -182,8 +185,8 @@ def simulate(instruction: str, picker_count: int) -> SimulationResponse:
         fifo_distance=baseline.distance,
         optimized_distance=optimized_distance,
         reduction_percent=round(reduction, 1),
-        nlp_bleu_score=0.88,
-        cv_f1_score=round(sum(item.f1_score for item in ANOMALIES) / len(ANOMALIES), 2),
+        parser_confidence=round(sum(item.confidence for item in parsed) / len(parsed), 2),
+        active_alerts=len(ANOMALIES),
         dispatch_seconds=max(35, optimized_distance * 7),
     )
 
@@ -198,3 +201,8 @@ def simulate(instruction: str, picker_count: int) -> SimulationResponse:
         recommendations=RECOMMENDATIONS,
         inventory=INVENTORY,
     )
+
+
+def simulate(instruction: str, picker_count: int) -> SimulationResponse:
+    """Backward-compatible deterministic entry point for non-agent callers."""
+    return build_simulation_response(parse_instruction(instruction), picker_count)

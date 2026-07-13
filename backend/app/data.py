@@ -133,14 +133,14 @@ ANOMALIES = [
         severity="high",
         message="Homecare chemical detected adjacent to produce staging lane.",
         location=SKU_INDEX["SKU-027"].location,
-        f1_score=0.94,
+        rule="chemical_produce_adjacency",
     ),
     Anomaly(
         id="ANM-118",
         severity="medium",
         message="Frozen bay door open longer than target dwell window.",
         location=SKU_INDEX["SKU-032"].location,
-        f1_score=0.91,
+        rule="frozen_dwell_window",
     ),
 ]
 
@@ -167,4 +167,3 @@ RECOMMENDATIONS = [
         rationale="Frozen dessert and bread items spike together between 7 PM and 10 PM.",
     ),
 ]
-

@@ -9,4 +9,6 @@ __pycache__/
 .env
 .env.local
 .pytest_cache/
-
+*.log
+*.out
+*.err

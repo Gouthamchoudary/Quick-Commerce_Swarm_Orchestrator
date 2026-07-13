@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .agent_workflow import get_parser_status, run_agent_simulation
 from .data import ANOMALIES, INVENTORY, RECOMMENDATIONS
 from .models import SimulationRequest, SimulationResponse
-from .services import simulate
 
 app = FastAPI(
     title="Q-Commerce Swarm Orchestrator",
@@ -23,7 +23,7 @@ app.add_middleware(
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "workflow": "langgraph", "parser": "langchain", **get_parser_status()}
 
 
 @app.get("/api/snapshot")
@@ -37,4 +37,4 @@ def snapshot() -> dict[str, object]:
 
 @app.post("/api/simulate", response_model=SimulationResponse)
 def run_simulation(payload: SimulationRequest) -> SimulationResponse:
-    return simulate(payload.instruction, payload.picker_count)
+    return run_agent_simulation(payload.instruction, payload.picker_count)

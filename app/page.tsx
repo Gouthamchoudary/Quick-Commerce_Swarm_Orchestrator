@@ -45,9 +45,9 @@ type SimulationResponse = {
   optimized_routes: PickerRoute[];
   metrics: {
     fifo_distance: number; optimized_distance: number; reduction_percent: number;
-    nlp_bleu_score: number; cv_f1_score: number; dispatch_seconds: number;
+    parser_confidence: number; active_alerts: number; dispatch_seconds: number;
   };
-  anomalies: Array<{ id: string; severity: "low" | "medium" | "high"; message: string; location: Location; f1_score: number }>;
+  anomalies: Array<{ id: string; severity: "low" | "medium" | "high"; message: string; location: Location; rule: string }>;
   recommendations: Array<{ id: string; title: string; lift: number; skus: string[]; rationale: string }>;
   inventory: InventoryItem[];
 };
@@ -122,6 +122,10 @@ const quickCatalog = [
   {name:"Basmati Rice",icon:"🌾",sku:"SKU-011"},{name:"Glass Cleaner",icon:"🧴",sku:"SKU-027"},
   {name:"Frozen Pizza",icon:"🍕",sku:"SKU-033"},{name:"Cereal",icon:"🥣",sku:"SKU-016"},
 ];
+
+function getApiBaseUrl() {
+  return process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "";
+}
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  Inventory Construction                                                      */
@@ -317,7 +321,7 @@ function simulateLocal(instruction:string, pickerCount:number): SimulationRespon
   const anomalies: SimulationResponse["anomalies"] = [];
   if (lower.includes("cleaner")||lower.includes("soap")) {
     const ci = localInventory.find(i=>i.sku.id==="SKU-027")!;
-    anomalies.push({id:"ANOMALY-101",severity:"high",message:"Chemical agent stored adjacent to Fresh Produce zone",location:ci.location,f1_score:0.94});
+    anomalies.push({id:"ANOMALY-101",severity:"high",message:"Chemical agent stored adjacent to Fresh Produce zone",location:ci.location,rule:"chemical_produce_adjacency"});
   }
 
   return {
@@ -326,8 +330,8 @@ function simulateLocal(instruction:string, pickerCount:number): SimulationRespon
     metrics:{
       fifo_distance:fifoDist, optimized_distance:optMax,
       reduction_percent:reduction,
-      nlp_bleu_score:Number((0.86+Math.min(parsed.length,8)*0.012).toFixed(2)),
-      cv_f1_score:0.92, dispatch_seconds:3+parsed.length*2,
+      parser_confidence:Number((0.86+Math.min(parsed.length,8)*0.012).toFixed(2)),
+      active_alerts:anomalies.length, dispatch_seconds:3+parsed.length*2,
     },
     anomalies,
     recommendations:[{
@@ -413,13 +417,13 @@ export default function Home() {
   function triggerTelemetry(parsedCount:number, optDist:number, fifoDist:number) {
     const logs=[
       `[System] Orchestrator session initialized...`,
-      `[NLP] Fine-tuned Llama-3 parsing natural language input...`,
+      `[Parser] Extracting catalog SKU candidates from the order instruction...`,
       `[NLP] Extraction success: ${parsedCount} catalogue SKU(s) identified.`,
       `[DB] Inventory ledger verified — stock availability confirmed (OK).`,
-      `[CV] YOLO-v8 cameras scanning shelf coordinates... Anomaly scan complete.`,
-      `[Router] Multi-Agent TSP solver initializing with ${pickerCount} robot carts...`,
-      `[Router] Optimal swarm paths computed. Critical path: ${optDist.toFixed(1)}m (FIFO was ${fifoDist.toFixed(1)}m).`,
-      `[System] ✅ Picker robot swarm dispatched! Real-time telemetry streaming.`,
+      `[Rules] Operational safety checks completed against seeded warehouse constraints.`,
+      `[Router] Heuristic multi-picker route planner allocating ${pickerCount} carts...`,
+      `[Router] Critical path computed: ${optDist.toFixed(1)}m (FIFO was ${fifoDist.toFixed(1)}m).`,
+      `[System] Simulation dispatch plan ready for review.`,
     ];
     setTelemetryLogs([]);
     logs.forEach((log,i)=>setTimeout(()=>setTelemetryLogs(prev=>[...prev,`${new Date().toLocaleTimeString()} ${log}`]),i*230));
@@ -435,14 +439,19 @@ export default function Home() {
     setLoading(true);
     let nextData: SimulationResponse = simulateLocal(instruction, pickerCount);
     try {
-      const res = await fetch("http://localhost:8000/api/simulate",{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({instruction,picker_count:pickerCount}),
-      });
-      if(!res.ok) throw new Error("API unavailable");
-      const next=(await res.json()) as SimulationResponse;
-      nextData=next.inventory.length?next:{...next,inventory:localInventory};
-      setSource("api");
+      const baseUrl = getApiBaseUrl();
+      if (baseUrl) {
+        const res = await fetch(`${baseUrl}/api/simulate`,{
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({instruction,picker_count:pickerCount}),
+        });
+        if(!res.ok) throw new Error("API unavailable");
+        const next=(await res.json()) as SimulationResponse;
+        nextData=next.inventory.length?next:{...next,inventory:localInventory};
+        setSource("api");
+      } else {
+        setSource("browser");
+      }
     } catch {
       nextData=simulateLocal(instruction,pickerCount);
       setSource("browser");
@@ -486,7 +495,7 @@ export default function Home() {
             <span>Q-Swarm Orchestrator</span>
             <span className="scb-divider"/>
             <span className="scb-tags">
-              <span>🧠 NLP</span><span>🤖 TSP Routing</span><span>📷 CV Anomaly</span>
+              <span>🧠 Order parsing</span><span>🗺 Route heuristic</span><span>🛡 Safety rules</span>
             </span>
           </div>
 
@@ -591,7 +600,7 @@ export default function Home() {
           <RouteBoard
             key={`fifo-${simKey}`}
             title="FIFO — Single Picker"
-            subtitle="One robot, all stops in order"
+            subtitle="One picker, all stops in request order"
             routes={[data.fifo_route]}
             distance={data.metrics.fifo_distance}
             inventory={data.inventory}
@@ -605,8 +614,8 @@ export default function Home() {
           />
           <RouteBoard
             key={`swarm-${simKey}`}
-            title={`Swarm — ${activePickers} Robots in Parallel`}
-            subtitle="TSP-optimised; each bot covers its nearest zone"
+            title={`Parallel Plan — ${activePickers} Pickers`}
+            subtitle="Heuristic allocation balances route distance and fragility"
             routes={data.optimized_routes}
             distance={optimizedCritical}
             inventory={data.inventory}
@@ -722,20 +731,20 @@ export default function Home() {
 
         {/* Anomalies */}
         <div className="inspector-panel info-panel">
-          <PanelTitle icon={<AlertTriangle size={16}/>} title="CV Shelf Anomalies"/>
+          <PanelTitle icon={<AlertTriangle size={16}/>} title="Operational Safety Rules"/>
           <div className="alert-list" style={{flex:1}}>
             {data.anomalies.length===0
-              ? <div className="empty-state">No anomalies detected.<br/><em style={{fontSize:"0.78rem"}}>Add "cleaner" to trigger CV scan.</em></div>
+              ? <div className="empty-state">No active safety alerts.<br/><em style={{fontSize:"0.78rem"}}>Rule checks use the seeded warehouse layout.</em></div>
               : data.anomalies.map(a=>(
                   <div className={cx("alert-row",a.severity)} key={a.id}>
                     <div><strong>{a.id}</strong><p>{a.message}</p></div>
-                    <span>{a.f1_score.toFixed(2)}</span>
+                    <span title={a.rule}>rule</span>
                   </div>
                 ))
             }
           </div>
           <div style={{marginTop:"auto",paddingTop:12}}>
-            <PanelTitle icon={<BrainCircuit size={16}/>} title="AI Recommendation"/>
+            <PanelTitle icon={<BrainCircuit size={16}/>} title="Placement Suggestions"/>
             {data.recommendations.map(r=>(
               <div key={r.id} className="rec-inline">
                 <span className="rec-lift">+{r.lift.toFixed(2)}× lift</span>

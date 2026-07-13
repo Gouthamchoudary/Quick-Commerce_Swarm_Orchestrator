@@ -5,21 +5,30 @@ import { usePathname } from "next/navigation";
 import { Warehouse, Database, Cpu, GitBranch, Github } from "lucide-react";
 import { useState, useEffect } from "react";
 
+function getApiBaseUrl() {
+  return process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "";
+}
+
 export default function Navbar() {
   const pathname = usePathname();
   const [apiOnline, setApiOnline] = useState(false);
+  const [aiMode, setAiMode] = useState("local fallback");
 
   // Check backend health periodically
   useEffect(() => {
     async function checkHealth() {
+      const baseUrl = getApiBaseUrl();
+      if (!baseUrl) {
+        setApiOnline(false);
+        setAiMode("browser fallback");
+        return;
+      }
       try {
-        const res = await fetch("http://localhost:8000/api/simulate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ instruction: "ping", picker_count: 1 }),
-        });
+        const res = await fetch(`${baseUrl}/health`);
         if (res.ok) {
           setApiOnline(true);
+          const health = await res.json() as { mode?: string };
+          setAiMode(health.mode ?? "local fallback");
         } else {
           setApiOnline(false);
         }
@@ -72,7 +81,7 @@ export default function Navbar() {
         <div className="navbar-status">
           <div className="status-indicator" title={apiOnline ? "FastAPI Backend Connected" : "Local Browser Fallback Active"}>
             <span className={`pulse-dot-nav ${apiOnline ? "online" : "offline"}`} />
-            <span>{apiOnline ? "FastAPI Active" : "Local Sandbox"}</span>
+            <span>{apiOnline ? aiMode : "Browser fallback"}</span>
           </div>
           <a
             href="https://github.com/Gouthamchoudary/Quick-Commerce_Swarm_Orchestrator"

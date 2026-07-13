@@ -272,7 +272,7 @@ export default function SchemaPage() {
             <p className="eyebrow" style={{ fontSize: "0.75rem", marginBottom: "4px" }}>Database Architecture</p>
             <h1 style={{ fontSize: "1.75rem", lineHeight: 1.1 }}>Relational Model</h1>
             <p style={{ color: "var(--muted)", fontSize: "0.82rem", marginTop: "6px", lineHeight: 1.4 }}>
-              Decoupled microservice storage mapped to a 3NF PostgreSQL structure. Drag tables to reorganize.
+              PostgreSQL-ready 3NF data model. The current simulation uses seeded in-memory records; this page documents the persistence layer for a production deployment.
             </p>
           </div>
 
@@ -351,7 +351,7 @@ export default function SchemaPage() {
               </p>
               <ul style={{ color: "var(--muted)", fontSize: "0.76rem", lineHeight: "1.4", paddingLeft: "14px", display: "flex", flexDirection: "column", gap: "4px", margin: 0 }}>
                 <li><strong>Composite PKs:</strong> Junction tables enforce unique matching records.</li>
-                <li><strong>Foreign Keys:</strong> Enforces cascade resets on active database schema updates.</li>
+                <li><strong>Foreign Keys:</strong> Define the referential-integrity rules to apply when the schema is deployed to PostgreSQL.</li>
               </ul>
             </div>
           )}

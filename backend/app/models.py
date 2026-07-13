@@ -47,7 +47,7 @@ class Anomaly(BaseModel):
     severity: Literal["low", "medium", "high"]
     message: str
     location: Location
-    f1_score: float
+    rule: str
 
 
 class Recommendation(BaseModel):
@@ -79,8 +79,8 @@ class SimulationMetrics(BaseModel):
     fifo_distance: int
     optimized_distance: int
     reduction_percent: float
-    nlp_bleu_score: float
-    cv_f1_score: float
+    parser_confidence: float
+    active_alerts: int
     dispatch_seconds: int
 
 
@@ -102,4 +102,3 @@ class SimulationResponse(BaseModel):
     anomalies: list[Anomaly]
     recommendations: list[Recommendation]
     inventory: list[InventoryItem]
-

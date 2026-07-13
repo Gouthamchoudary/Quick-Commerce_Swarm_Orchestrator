@@ -8,9 +8,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Q-Commerce Swarm Orchestrator | AI Resume Project",
-  description: "A decentralized AI system demonstrating multi-agent routing, NLP order parsing, and computer vision anomaly detection for high-density dark stores.",
-  keywords: "Quick Commerce, AI, Swarm Intelligence, Reinforcement Learning, Next.js, FastAPI, Machine Learning Portfolio",
+  title: "Q-Commerce Picking Orchestrator",
+  description: "A transparent quick-commerce simulation using LangGraph orchestration, optional LLM order extraction, deterministic routing, and rule-based safety checks.",
+  keywords: "Quick Commerce, LangGraph, LangChain, FastAPI, Next.js, LLM orchestration, route optimization",
   authors: [{ name: "Your Name Here" }],
 };
 
@@ -30,4 +30,3 @@ export default function RootLayout({
     </html>
   );
 }
-
